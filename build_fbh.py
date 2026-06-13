@@ -12,6 +12,8 @@ from openpyxl.drawing.image import Image as XLImage
 from openpyxl.drawing.spreadsheet_drawing import OneCellAnchor, AnchorMarker
 from openpyxl.drawing.xdr import XDRPositiveSize2D
 from openpyxl.chart import LineChart, Reference
+from openpyxl.cell.rich_text import CellRichText, TextBlock
+from openpyxl.cell.text import InlineFont
 
 CHANGELOG = [
     ("0.1", "2026-06-07", [
@@ -130,6 +132,11 @@ CHANGELOG = [
         "Deckblatt: Titel 'Fußbodenheizung – Auslegung' (Wort 'überschlägige' entfernt); Vereinfachungen bleiben dokumentiert.",
         "Anleitung: Abschnitt 'Planungstechnische Grundlagen' wieder entfernt.",
     ]),
+    ("0.22", "2026-06-13", [
+        "Anleitung: neue Ampel-Legende (warum ist eine Zelle rot?) und Hinweis zur Auslegung mehrerer Verteiler/Geschosse; Blatt nach hinten verschoben (jetzt vor der Methodik).",
+        "Deckblatt: Druck-Hinweis ergänzt – nur die relevanten Blätter (Deckblatt, Grundeinstellungen, Auslegung, Kontrolle, HKV, Anleitung) gemeinsam als 'Aktive Blätter' drucken.",
+        "Formelzeichen mit echten Tiefstellungen dargestellt (z. B. q_HL, R_λ,B, V̇_max) – kein Unterstrich mehr in den Kopfzeilen, Grundeinstellungen und der Methodik-Variablenliste.",
+    ]),
 ]
 VERSION = CHANGELOG[-1][0]
 AUTHOR = "dh"
@@ -155,6 +162,27 @@ LEFT = Alignment(horizontal="left")
 
 def f(bold=False, color=BLACK, size=10, italic=False):
     return Font(name=FONT, bold=bold, color=color, size=size, italic=italic)
+
+def fz(text, color=BLACK, bold=False, size=10, italic=False):
+    """Formelzeichen mit echten Tiefstellungen: nach '_' folgt bis zum nächsten
+    Leerzeichen ein tiefgestelltes Token (z. B. q_HL → q mit tiefem HL)."""
+    if "_" not in text:
+        return text
+    sf = InlineFont(rFont=FONT, vertAlign="subscript", b=bold, i=italic, sz=size, color=color)
+    parts, cur, i, n = [], "", 0, len(text)
+    while i < n:
+        if text[i] == "_" and i + 1 < n and not text[i + 1].isspace():
+            if cur:
+                parts.append(cur); cur = ""
+            i += 1; tok = ""
+            while i < n and not text[i].isspace():
+                tok += text[i]; i += 1
+            parts.append(TextBlock(sf, tok))
+        else:
+            cur += text[i]; i += 1
+    if cur:
+        parts.append(cur)
+    return CellRichText(parts)
 
 def col_px(ws, idx):
     dim = ws.column_dimensions[get_column_letter(idx)]
@@ -264,7 +292,7 @@ def section(row, text, cL):
     for col in range(cL, cL + 6): g.cell(row=row, column=col).fill = HDR_FILL
     g.cell(row=row, column=cL, value=text).font = f(bold=True, color=WHITE)
 def param(row, label, value, unit, note, fmt, cL):
-    g.cell(row=row, column=cL, value=label).font = f()
+    g.cell(row=row, column=cL, value=fz(label)).font = f()
     g.merge_cells(start_row=row, start_column=cL, end_row=row, end_column=cL + 1)
     v = g.cell(row=row, column=cL + 2, value=value); v.font = f(bold=True, color=BLUE); v.alignment = CEN; v.border = BORDER; v.fill = INPUT_FILL
     if fmt: v.number_format = fmt
@@ -272,7 +300,7 @@ def param(row, label, value, unit, note, fmt, cL):
     g.cell(row=row, column=cL + 4, value=note).font = f(italic=True, color=GREY, size=9)
     g.merge_cells(start_row=row, start_column=cL + 4, end_row=row, end_column=cL + 5)
 def calcrow(row, label, formula, unit, fmt, cL, note=""):
-    g.cell(row=row, column=cL, value=label).font = f(); g.merge_cells(start_row=row, start_column=cL, end_row=row, end_column=cL + 1)
+    g.cell(row=row, column=cL, value=fz(label)).font = f(); g.merge_cells(start_row=row, start_column=cL, end_row=row, end_column=cL + 1)
     v = g.cell(row=row, column=cL + 2, value=formula); v.font = f(bold=True); v.alignment = CEN; v.border = BORDER; v.number_format = fmt
     g.cell(row=row, column=cL + 3, value=unit).font = f(color=GREY)
     if note:
@@ -392,7 +420,8 @@ for j, (name, sym, unit, width, fmt, color) in enumerate(columns, start=1):
     fill = SUB_FILL if is_inp else HDR_FILL
     tcol = NAVY if is_inp else WHITE
     for row, txt, sz in ((NAME_ROW, name, 10), (SYM_ROW, sym, 10), (UNIT_ROW, unit, 9)):
-        c = rl.cell(row=row, column=j, value=txt)
+        val = fz(txt, color=tcol, bold=True, size=sz) if row == SYM_ROW else txt
+        c = rl.cell(row=row, column=j, value=val)
         c.fill = fill; c.font = f(bold=True, color=tcol, size=sz)
         c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True); c.border = BORDER
 rl.row_dimensions[NAME_ROW].height = 34
@@ -704,7 +733,7 @@ steps_r = [
     ("• K_H vereinfacht + η-Faktor statt EN-1264; Rohrwand nicht enthalten (→ f).", ""),
     ("• Wärmeabgabe nach unten global; pauschale Δp-Zuschläge.", ""),
 ]
-end_b = methcol(2, 5, vars_)
+end_b = methcol(2, 5, [(fz(t), k) for t, k in vars_])
 methcol(4, 6, steps_l)
 methcol(6, 6, steps_r)
 disp_header(m, "Methodik & Annahmen", 6, project=False)
@@ -858,11 +887,21 @@ box(27, 1, 29, 11,
     "pauschaler Druckverlust-Zuschlag + fester Verteiler-Aufschlag",
     fill=AMB_B, font=f(color=BLACK, size=10.5), align="left", valign="center")
 db.row_dimensions[26].height = 18
+# Druck-Hinweis: nur die relevanten Auslegungs-Blätter ausgeben
+box(31, 1, 31, 11, "Drucken – Auslegungsunterlagen", fill=HDR_FILL,
+    font=f(bold=True, color=WHITE, size=11), align="left", valign="center")
+box(32, 1, 33, 11,
+    "Für die Ausgabe der Auslegung die Blätter  Deckblatt · Grundeinstellungen · Auslegung · "
+    "Kontrolle · HKV · Anleitung  mit Strg gemeinsam markieren und  Datei > Drucken > "
+    "'Aktive Blätter drucken'  wählen.   (Verifikation, Methodik, Konstanten und Changelog "
+    "sind Referenz und werden dabei nicht mitgedruckt.)",
+    fill=BODY_S, font=f(color=BLACK, size=10.5), align="left", valign="center")
+db.row_dimensions[31].height = 18
 db.page_setup.orientation = "landscape"
 db.page_setup.paperSize = 9
 db.sheet_properties.pageSetUpPr = PageSetupProperties(fitToPage=True)
 db.page_setup.fitToWidth = 1; db.page_setup.fitToHeight = 1
-db.print_area = "A1:K29"
+db.print_area = "A1:K33"
 db.page_margins.left = db.page_margins.right = 0.3
 db.page_margins.top = db.page_margins.bottom = 0.3
 
@@ -889,31 +928,32 @@ def anl(col, start, items):
 left = [
     ("Aufbau der Mappe", "h"),
     ("• Deckblatt – Übersicht (Input / Verarbeitung / Output)", ""),
-    ("• Anleitung – diese Seite", ""),
     ("• Grundeinstellungen – globale Werte", ""),
     ("• Auslegung – Raumliste mit allen Berechnungen", ""),
     ("• Kontrolle – Summen & Warnungen", ""),
     ("• HKV – Auswertung je Heizkreisverteiler", ""),
     ("• Verifikation – Abgleich mit Herstellerdaten", ""),
+    ("• Anleitung – diese Seite", ""),
     ("• Methodik – Formeln & Annahmen", ""),
     ("• Konstanten – Nachschlagetabellen", ""),
     ("• Changelog – Versionen", ""),
-    ("", ""),
-    ("Spalten der Auslegung", "h"),
-    ("Aus Revit (A–F):", "sh"),
-    ("HKV, Raum-Nr., Bezeichnung, Raumfläche,", ""),
-    ("Raumtemperatur, Heizlast.", ""),
-    ("Berechnet (G):", "sh"),
-    ("spez. Heizlast – nicht überschreiben.", ""),
-    ("Im Tool ergänzen (H–M):", "sh"),
-    ("aktiv. Fläche, R-Wert, Verlegeabstand,", ""),
-    ("Anz. Kreise, Zuleitung, Zone.", ""),
     ("", ""),
     ("Farblegende", "h"),
     ("• Blau (gelb hinterlegt) = Eingabe", ""),
     ("• Schwarz = berechnet (nicht ändern)", ""),
     ("• Grün = OK,  Rot = Warnung / Grenzwert überschritten", ""),
     ("• Nur die blauen Eingabezellen bearbeiten.", ""),
+    ("", ""),
+    ("Ampel-Legende (warum ist eine Zelle rot?)", "h"),
+    ("• Deckung < 100 % → Heizlast nicht gedeckt", ""),
+    ("• Oberflächentemperatur > Zonen-Grenztemperatur", ""),
+    ("• Rohrlänge je Kreis > max. Kreislänge", ""),
+    ("• Druckverlust je Kreis > Warnschwelle", ""),
+    ("• Geschwindigkeit außerhalb der Grenzen", ""),
+    ("• Volumenstrom je Kreis > Grenzwert", ""),
+    ("• aktivierbare Fläche > Raumfläche", ""),
+    ("Grenzwerte stehen in den Grundeinstellungen,", "i"),
+    ("Zonen-Grenztemperaturen in den Konstanten.", "i"),
 ]
 right = [
     ("Schritt für Schritt", "h"),
@@ -930,11 +970,31 @@ right = [
     ("7. Spalten H–M je Raum ergänzen (aktiv. Fläche, R-Wert,", ""),
     ("    Verlegeabstand, Kreise, Zuleitung, Zone).", ""),
     ("8. Ergebnisse prüfen: Ampel in Auslegung + 'Kontrolle'.", ""),
+    ("", ""),
+    ("Spalten der Auslegung", "h"),
+    ("Aus Revit (A–F): HKV, Raum-Nr., Bezeichnung,", ""),
+    ("   Raumfläche, Raumtemperatur, Heizlast.", ""),
+    ("Berechnet (G): spez. Heizlast (nicht ändern).", ""),
+    ("Im Tool (H–M): aktiv. Fläche, R-Wert, Verlege-", ""),
+    ("   abstand, Kreise, Zuleitung, Zone.", ""),
+    ("", ""),
+    ("Mehrere Verteiler / Geschosse auslegen", "h"),
+    ("• Verteiler je Raum in Spalte A (HKV) eintragen", ""),
+    ("   (z. B. HKV EG, HKV OG, HKV 1.OG …).", ""),
+    ("• Das Blatt 'HKV' wertet jeden Verteiler automatisch", ""),
+    ("   aus (Kreise, Leistung, Volumenstrom, max. Δp).", ""),
+    ("• Beliebig viele Verteiler in EINER Liste – einfach", ""),
+    ("   weitere Räume ergänzen.", ""),
 ]
 end_l = anl(2, 3, left)
 end_r = anl(4, 3, right)
 disp_header(an, "Anleitung / Bedienung", 4, project=False)
 setup_print(an, f"A1:D{max(end_l, end_r)}")
+
+# Blattreihenfolge: Anleitung nach hinten, direkt vor die Methodik
+SHEET_ORDER = ["Deckblatt", "Grundeinstellungen", "Auslegung", "Kontrolle", "HKV",
+               "Verifikation", "Anleitung", "Methodik", "Konstanten", "Changelog"]
+wb._sheets.sort(key=lambda ws: SHEET_ORDER.index(ws.title))
 wb.active = 0
 
 # =====================================================================
