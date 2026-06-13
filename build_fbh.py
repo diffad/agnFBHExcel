@@ -120,6 +120,11 @@ CHANGELOG = [
         "Anleitung: durchgehende Schritt-für-Schritt-Anleitung mit integriertem Revit-Export (vorgefertigte Bauteilliste muss nicht erst angelegt werden); redundanter Abschnitt 'Räume aus Revit' und der Hinweis zum direkten Kopieren entfernt.",
         "Deckblatt: Pfeil-Spalten breiter und Pfeilgröße angepasst (optisch sauberer).",
     ]),
+    ("0.20", "2026-06-13", [
+        "Grundeinstellungen: Spaltenbreiten optimiert und lange Beschriftungen/Hinweise gekürzt – Texte werden in LibreOffice nicht mehr abgeschnitten.",
+        "Verifikation: Untertitel und Hinweise vereinfacht (Modellvergleich-Erläuterung entfernt); klarer Hinweis, dass der Korrekturfaktor f VOR der Raumauslegung kalibriert wird; Diagramm etwas größer.",
+        "Anleitung: Schritt-für-Schritt neu geordnet – Verifikation/Kalibrierung des Korrekturfaktors jetzt VOR der Raumauslegung; neuer Abschnitt 'Planungstechnische Grundlagen'; Hinweis zur vorgefertigten Revit-Liste entfernt.",
+    ]),
 ]
 VERSION = CHANGELOG[-1][0]
 AUTHOR = "dh"
@@ -234,8 +239,8 @@ PIPE_RANGE = f"{K}$A$18:$E$25"; PIPE_LIST = f"{K}$A$18:$A$25"
 g = wb.active
 g.title = "Grundeinstellungen"
 g.sheet_view.showGridLines = False
-for col, w in (("A", 20), ("B", 15), ("C", 11), ("D", 7), ("E", 15), ("F", 7), ("G", 2),
-               ("H", 20), ("I", 15), ("J", 11), ("K", 7), ("L", 15), ("M", 7)):
+for col, w in (("A", 23), ("B", 15), ("C", 11), ("D", 8), ("E", 17), ("F", 7), ("G", 2),
+               ("H", 23), ("I", 15), ("J", 11), ("K", 8), ("L", 17), ("M", 7)):
     g.column_dimensions[col].width = w
 g.row_dimensions[1].height = 34
 g["A1"].value = "Globale Grundeinstellungen – Fußbodenheizung"
@@ -270,32 +275,32 @@ def calcrow(row, label, formula, unit, fmt, cL, note=""):
 
 # ---- linke Spalte (Werte in C) ----
 section(5, "Heizmedium / Temperaturen", 1)
-param(6, "Vorlauftemperatur  θV", 35, "°C", "Auslegungs-Vorlauftemperatur", '0.0" °C"', 1)
-param(7, "Rücklauftemperatur  θR", 28, "°C", "Auslegungs-Rücklauftemperatur", '0.0" °C"', 1)
+param(6, "Vorlauftemperatur  θV", 35, "°C", "Auslegungs-Vorlauf", '0.0" °C"', 1)
+param(7, "Rücklauftemperatur  θR", 28, "°C", "Auslegungs-Rücklauf", '0.0" °C"', 1)
 calcrow(8, "Spreizung  θV − θR", "=C6-C7", "K", '0.0" K"', 1, "berechnet")
 section(10, "Grenzwerte", 1)
 param(11, "Maximale zulässige Kreislänge", 120, "m", "Obergrenze je Heizkreis", '0" m"', 1)
-param(12, "Maximaler Druckverlust je Kreis", 15000, "Pa", "Warnschwelle bei Überschreitung", '#,##0" Pa"', 1)
+param(12, "Maximaler Druckverlust je Kreis", 15000, "Pa", "Warnschwelle", '#,##0" Pa"', 1)
 section(14, "Stoffwerte Heizmedium (Wasser ~30 °C)", 1)
 param(15, "Dichte  ρ", 995.7, "kg/m³", "Dichte des Mediums", '0.0', 1)
 param(16, "spezifische Wärmekapazität  c_p", 4180, "J/(kg·K)", "spez. Wärmekapazität", '#,##0', 1)
 param(17, "kinematische Viskosität  ν", 0.000000801, "m²/s", "für die Reynolds-Zahl", '0.00E+00', 1)
 section(19, "Strömungsgrenzwerte", 1)
-param(20, "Minimale Strömungsgeschwindigkeit  v_min", 0.10, "m/s", "untere empfohlene Grenze", '0.00" m/s"', 1)
-param(21, "Maximale Strömungsgeschwindigkeit  v_max", 0.50, "m/s", "obere empfohlene Grenze", '0.00" m/s"', 1)
-param(22, "Maximaler Volumenstrom je Kreis  V̇_max", 150, "l/h", "Warnschwelle je Heizkreis", '0" l/h"', 1)
+param(20, "Minimale Geschwindigkeit  v_min", 0.10, "m/s", "untere empfohlene Grenze", '0.00" m/s"', 1)
+param(21, "Maximale Geschwindigkeit  v_max", 0.50, "m/s", "obere empfohlene Grenze", '0.00" m/s"', 1)
+param(22, "Max. Volumenstrom je Kreis  V̇_max", 150, "l/h", "Warnschwelle je Heizkreis", '0" l/h"', 1)
 section(23, "Druckverlust-Zuschläge", 1)
-param(24, "Zuschlag Einzelwiderstände", 0.05, "-", "Rohr-Formstücke (0,05 = 5 %)", '0%', 1)
+param(24, "Zuschlag Einzelwiderstände", 0.05, "-", "Formstücke (5 %)", '0%', 1)
 param(25, "Aufschlag Verteiler je Kreis", 500, "Pa", "fester Wert je Verteiler", '#,##0" Pa"', 1)
 
 # ---- rechte Spalte (Werte in J) ----
 section(5, "Wärmeübergang / Fußbodenaufbau", 8)
-param(6, "Wärmeübergangskoeffizient Oberfläche  α", 10.8, "W/m²K", "Boden → Raum (EN 1264)", '0.0', 8)
+param(6, "Wärmeübergang Oberfläche  α", 10.8, "W/m²K", "Boden → Raum (EN 1264)", '0.0', 8)
 param(7, "Estrichüberdeckung über Rohr  s_ü", 0.045, "m", "Estrich über den Rohren", '0.000', 8)
 param(8, "Wärmeleitfähigkeit Estrich  λ_E", 1.2, "W/mK", "Zementestrich typ. 1,2", '0.00', 8)
 section(10, "Wärmeabgabe nach unten (Dämmung, global)", 8)
-param(11, "Wärmedurchlasswiderstand nach unten  R_u", 2.0, "m²K/W", "Dämmung + Aufbau unter den Rohren", '0.00', 8)
-param(12, "Temperatur unter der Decke  θ_u", 10, "°C", "Raum / Erdreich unter der FBH", '0.0" °C"', 8)
+param(11, "Wärmedurchlasswiderstand  R_u", 2.0, "m²K/W", "Dämmung unter den Rohren", '0.00', 8)
+param(12, "Temperatur unter der Decke  θ_u", 10, "°C", "Raum/Erdreich unter FBH", '0.0" °C"', 8)
 calcrow(13, "Wärmestrom nach unten  q_u", "=((C6+C7)/2-J12)/J11", "W/m²", '0.0" W/m²"', 8, "Mittel θm = (θV+θR)/2")
 section(15, "Rohrsystem-Auswahl (Werte aus Konstanten)", 8)
 g.cell(row=16, column=8, value="Gewähltes Rohrsystem").font = f(); g.merge_cells("H16:I16")
@@ -604,7 +609,7 @@ vf.conditional_formatting.add(f"E{V0}:E{V1}", FormulaRule(formula=[f'AND($E{V0}<
 vf.conditional_formatting.add(f"E{V0}:E{V1}", FormulaRule(formula=[f'AND($E{V0}<>"",ABS($E{V0})<=0.1)'], fill=GREEN_FILL))
 chart = LineChart(); chart.title = "Heizleistung über Verlegeabstand"
 chart.y_axis.title = "q [W/m²]"; chart.x_axis.title = "Verlegeabstand [mm]"
-chart.height = 10; chart.width = 14; chart.style = 2
+chart.height = 11; chart.width = 15; chart.style = 2
 chart.add_data(Reference(vf, min_col=2, min_row=VT, max_row=V1), titles_from_data=True)
 chart.add_data(Reference(vf, min_col=3, min_row=VT, max_row=V1), titles_from_data=True)
 chart.set_categories(Reference(vf, min_col=1, min_row=V0, max_row=V1))
@@ -612,15 +617,17 @@ vf.add_chart(chart, "J5")   # rechts neben den Tabellen
 nr = V1 + 2
 for i, (txt, kind) in enumerate([
     ("Hinweise", "h"),
-    ("• Vergleich EINES Berechnungsmodells mit EINEM Herstellermodell über den Verlegeabstand.", ""),
     ("• Hersteller-q je Verlegeabstand aus dem Datenblatt in Spalte C eintragen.", ""),
-    ("• Korrekturfaktor f oben so einstellen, dass die Linien übereinanderliegen (Abweichung grün).", "i")]):
+    ("• Korrekturfaktor f oben so einstellen, dass berechnetes q und Hersteller-q", ""),
+    ("   möglichst übereinstimmen (Abweichung grün).", ""),
+    ("• Der so kalibrierte Faktor f gilt für die gesamte Auslegung – daher VOR", "i"),
+    ("   der Raumauslegung kalibrieren.", "i")]):
     c = vf.cell(row=nr + i, column=1, value=txt)
     if kind == "h": c.font = f(bold=True, color=NAVY, size=11)
     elif kind == "i": c.font = f(italic=True, color=GREY, size=9)
     else: c.font = f()
-disp_header(vf, "Verifikation – Berechnung vs. Hersteller (über Verlegeabstand)", 16, project=True)
-setup_print(vf, f"A1:Q{max(nr + 2, 24)}")
+disp_header(vf, "Verifikation – Abgleich mit Herstellerdaten", 16, project=True)
+setup_print(vf, f"A1:Q{max(nr + 4, 24)}")
 
 # =====================================================================
 #  Blatt 6: METHODIK
@@ -898,33 +905,32 @@ left = [
 ]
 right = [
     ("Schritt für Schritt", "h"),
-    ("1. Grundeinstellungen ausfüllen: Projekt, Temperaturen,", ""),
-    ("    Rohrsystem, Stoffwerte und Grenzwerte (Kreislänge,", ""),
-    ("    Druckverlust, Geschwindigkeit, Volumenstrom je Kreis).", ""),
+    ("1. Grundeinstellungen ausfüllen: Temperaturen, Rohr-", ""),
+    ("    system, Stoffwerte, Grenzwerte.", ""),
     ("2. Konstanten prüfen / erweitern (Rohre, R-Werte, Zonen).", ""),
-    ("3. In Revit die vorgefertigte Bauteilliste öffnen – sie ist", ""),
-    ("    bereits passend angelegt und enthält die Spalten A–F", ""),
-    ("    (HKV, Raum-Nr., Bezeichnung, Raumfläche,", ""),
-    ("    Raumtemperatur, Heizlast).", ""),
-    ("4. Bauteilliste aus Revit nach Excel exportieren", ""),
-    ("    ('Exportieren → Bericht/Schedule').", ""),
-    ("5. Werte aus dem Export in die Auslegung übernehmen", ""),
-    ("    (Spalten A–F, ab der ersten Datenzeile).", ""),
+    ("3. Verifikation: Korrekturfaktor f kalibrieren – VOR der", ""),
+    ("    Raumauslegung (er wirkt auf alle Räume).", ""),
+    ("4. Bauteilliste (Schedule) aus Revit nach Excel exportieren", ""),
+    ("    – Spalten A–F (HKV, Raum-Nr., Bezeichnung, Raum-", ""),
+    ("    fläche, Raumtemperatur, Heizlast).", ""),
+    ("5. Export in die Auslegung übernehmen (A–F).", ""),
     ("6. Spalte G (spez. Heizlast) frei lassen – wird berechnet.", ""),
-    ("7. Spalten H–M je Raum ergänzen: aktivierbare Fläche,", ""),
-    ("    R-Wert Bodenbelag, Verlegeabstand, Anzahl Kreise,", ""),
-    ("    Zuleitungslänge, Zone.", ""),
-    ("8. Ergebnisse prüfen: Ampel in der Auslegung und im", ""),
-    ("    Blatt 'Kontrolle' (Deckung, Kreislänge, Druckverlust,", ""),
-    ("    Geschwindigkeit, Volumenstrom je Kreis).", ""),
-    ("9. Verifikation: Korrekturfaktor f an Herstellerdaten", ""),
-    ("    kalibrieren.", ""),
+    ("7. Spalten H–M je Raum ergänzen (aktiv. Fläche, R-Wert,", ""),
+    ("    Verlegeabstand, Kreise, Zuleitung, Zone).", ""),
+    ("8. Ergebnisse prüfen: Ampel in Auslegung + 'Kontrolle'.", ""),
     ("", ""),
-    ("Hinweis", "sh"),
-    ("Die Bauteilliste in Revit muss nicht erst angelegt werden –", ""),
-    ("sie ist passend zur Auslegung vorbereitet. Bei Bedarf lassen", ""),
-    ("sich auch die Felder H–M (z. B. Zone, Verlegeabstand) als", ""),
-    ("gemeinsame Parameter in Revit pflegen und mit exportieren.", ""),
+    ("Planungstechnische Grundlagen", "h"),
+    ("• Heizlast je Raum (DIN EN 12831) ist die Grundlage.", ""),
+    ("• Vorlauftemperatur niedrig (z. B. 35/28 °C): effizient,", ""),
+    ("   wärmepumpentauglich.", ""),
+    ("• Oberflächentemperatur begrenzt (Aufenthalt ≤ 29 °C,", ""),
+    ("   Randzone ≤ 35 °C, Bad ≤ 33 °C) → begrenzt q.", ""),
+    ("• Enger Verlegeabstand = mehr Leistung (10–30 cm).", ""),
+    ("• Kreise gleich lang halten, Kreislänge begrenzen", ""),
+    ("   (Druckverlust, hydraulischer Abgleich).", ""),
+    ("• Aktivierbare Fläche < Raumfläche; Bodenbelag (R-Wert)", ""),
+    ("   mindert die Leistung.", ""),
+    ("• Überschlägig – ersetzt nicht die Detailplanung (EN 1264).", "i"),
 ]
 end_l = anl(2, 3, left)
 end_r = anl(4, 3, right)
