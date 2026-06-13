@@ -106,6 +106,10 @@ CHANGELOG = [
         "Konstanten: Tabellen teilweise nebeneinander.",
         "Auslegung: Spalte Zone mittig/schmaler, Raum-Nr. breiter; Verifikation-Korrekturfaktor vertikal mittig.",
     ]),
+    ("0.17", "2026-06-13", [
+        "Neues Blatt 'Anleitung' (2. Blatt): Aufbau der Mappe, Schritt-für-Schritt, Farblegende.",
+        "Anleitung enthält den Workflow zum Übernehmen der Räume aus Revit (Copy & Paste, Schedule, Dynamo/Power Query).",
+    ]),
 ]
 VERSION = CHANGELOG[-1][0]
 AUTHOR = "dh"
@@ -828,6 +832,92 @@ db.page_setup.fitToWidth = 1; db.page_setup.fitToHeight = 1
 db.print_area = "A1:K29"
 db.page_margins.left = db.page_margins.right = 0.3
 db.page_margins.top = db.page_margins.bottom = 0.3
+
+# =====================================================================
+#  Blatt 1: ANLEITUNG  (zweites Blatt)
+# =====================================================================
+an = wb.create_sheet("Anleitung", 1)
+an.sheet_view.showGridLines = False
+for col, w in (("A", 2), ("B", 60), ("C", 3), ("D", 60)):
+    an.column_dimensions[col].width = w
+
+def anl(col, start, items):
+    rr = start
+    for text, kind in items:
+        c = an.cell(row=rr, column=col, value=text)
+        if kind == "h": c.font = Font(name=FONT, bold=True, color=NAVY, size=12)
+        elif kind == "sh": c.font = Font(name=FONT, bold=True, color=BLACK, size=10.5)
+        elif kind == "i": c.font = Font(name=FONT, italic=True, color=GREY, size=9)
+        else: c.font = Font(name=FONT, size=10)
+        c.alignment = Alignment(vertical="top")
+        rr += 1
+    return rr
+
+left = [
+    ("Aufbau der Mappe", "h"),
+    ("• Deckblatt – Übersicht (Input / Verarbeitung / Output)", ""),
+    ("• Anleitung – diese Seite", ""),
+    ("• Grundeinstellungen – globale Werte", ""),
+    ("• Auslegung – Raumliste mit allen Berechnungen", ""),
+    ("• Kontrolle – Summen & Warnungen", ""),
+    ("• HKV – Auswertung je Heizkreisverteiler", ""),
+    ("• Verifikation – Abgleich mit Herstellerdaten", ""),
+    ("• Methodik – Formeln & Annahmen", ""),
+    ("• Konstanten – Nachschlagetabellen", ""),
+    ("• Changelog – Versionen", ""),
+    ("", ""),
+    ("Schritt für Schritt", "h"),
+    ("1. Grundeinstellungen ausfüllen (Projekt, Temperaturen,", ""),
+    ("    Rohrsystem, Grenzwerte).", ""),
+    ("2. Konstanten prüfen / erweitern (Rohre, R-Werte, Zonen).", ""),
+    ("3. Räume in 'Auslegung' eintragen (blaue Spalten) –", ""),
+    ("    siehe rechts: aus Revit übernehmen.", ""),
+    ("4. Ergebnisse prüfen: Ampel in Auslegung + Blatt 'Kontrolle'.", ""),
+    ("5. Verifikation: Korrekturfaktor f an Herstellerdaten", ""),
+    ("    kalibrieren.", ""),
+    ("", ""),
+    ("Farblegende", "h"),
+    ("• Blau (gelb hinterlegt) = Eingabe", ""),
+    ("• Schwarz = berechnet (nicht ändern)", ""),
+    ("• Grün = OK,  Rot = Warnung", ""),
+    ("• Nur die blauen Eingabezellen bearbeiten.", ""),
+]
+right = [
+    ("Räume aus Revit übernehmen", "h"),
+    ("Eingabespalten der Auslegung (blau):", ""),
+    ("A HKV · B Raum-Nr. · C Bezeichnung · D Raumfläche ·", ""),
+    ("E aktiv. Fläche · F Raumtemperatur · G Heizlast ·", ""),
+    ("I R-Wert · J Verlegeabstand · K Anz. Kreise ·", ""),
+    ("L Zuleitung · M Zone", ""),
+    ("Achtung: Spalte H (spez. Heizlast) ist berechnet – nicht überschreiben!", "i"),
+    ("", ""),
+    ("Variante 1 – Copy & Paste", "sh"),
+    ("• In Revit eine Raumliste (Schedule) anlegen, Spalten in", ""),
+    ("   der Reihenfolge der Auslegung (Nr., Name, Fläche …).", ""),
+    ("• Zeilen markieren → kopieren → in Excel ab erster", ""),
+    ("   Datenzeile mit 'Inhalte einfügen → Werte' einfügen.", ""),
+    ("• Spalte H überspringen: Block A–G und ab I getrennt", ""),
+    ("   einfügen (oder spaltenweise).", ""),
+    ("", ""),
+    ("Was kommt aus Revit?", "sh"),
+    ("• Aus Revit: Raum-Nr., Bezeichnung, Raumfläche.", ""),
+    ("• Heizlast: aus Heizlastberechnung (DIN 12831) bzw.", ""),
+    ("   Revit-Systemanalyse – meist separat.", ""),
+    ("• R-Wert, Verlegeabstand, Kreise, Zone, HKV: im Tool", ""),
+    ("   festlegen (Planungsentscheidung).", ""),
+    ("", ""),
+    ("Elegantere Wege", "sh"),
+    ("• Gemeinsame Parameter in Revit pflegen (Zone, HKV,", ""),
+    ("   Verlegeabstand …) → alles in einem Schedule.", ""),
+    ("• Dynamo / pyRevit: Raumparameter automatisch nach", ""),
+    ("   Excel schreiben (aktualisierbar).", ""),
+    ("• Power Query: Schedule als CSV exportieren und", ""),
+    ("   importieren / aktualisieren.", ""),
+]
+end_l = anl(2, 3, left)
+end_r = anl(4, 3, right)
+disp_header(an, "Anleitung / Bedienung", 4, project=False)
+setup_print(an, f"A1:D{max(end_l, end_r)}")
 wb.active = 0
 
 # =====================================================================

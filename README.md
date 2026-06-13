@@ -18,7 +18,7 @@ Massen-/Volumenströme und Druckverluste abgeschätzt und per Ampel bewertet.
 
 ## Tabellenblätter der Mappe
 
-Deckblatt · Grundeinstellungen · Auslegung · Kontrolle · HKV (Heizkreisverteiler) ·
+Deckblatt · Anleitung · Grundeinstellungen · Auslegung · Kontrolle · HKV (Heizkreisverteiler) ·
 Verifikation · Methodik · Konstanten · Changelog
 
 ## Arbeitsmappe neu erzeugen
