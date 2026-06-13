@@ -1,0 +1,21 @@
+# interne Notizen / Projektkontext (nicht teilen)
+.claude/
+
+# altes Backup
+FBH_Auslegung_Excel.zip
+
+# temporäre Render-/Hilfsdateien
+*.pdf
+*.tmp
+slide-*.png
+p*.png
+cov*.png
+diag*.png
+vchk*.png
+
+# Excel-Sperrdateien
+~$*.xlsx
+
+# Python
+__pycache__/
+*.pyc
