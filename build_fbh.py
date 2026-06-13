@@ -110,6 +110,10 @@ CHANGELOG = [
         "Neues Blatt 'Anleitung' (2. Blatt): Aufbau der Mappe, Schritt-für-Schritt, Farblegende.",
         "Anleitung enthält den Workflow zum Übernehmen der Räume aus Revit (Copy & Paste, Schedule, Dynamo/Power Query).",
     ]),
+    ("0.18", "2026-06-13", [
+        "Auslegung: Eingabespalten neu sortiert – zuerst die Revit-Spalten (A HKV, B Raum-Nr., C Bezeichnung, D Raumfläche, E Raumtemperatur, F Heizlast), dann G spez. Heizlast (berechnet), danach die manuellen Felder (H aktiv. Fläche, I R-Wert, J Verlegeabstand, K Anz. Kreise, L Zuleitung, M Zone).",
+        "Anleitung: Excel-Export aus Revit ist jetzt der Standard-Workflow (direktes Kopieren funktioniert nicht); Spaltenliste an neue Reihenfolge angepasst.",
+    ]),
 ]
 VERSION = CHANGELOG[-1][0]
 AUTHOR = "dh"
@@ -325,10 +329,10 @@ columns = [
     ("Raum-Nr.", "", "", 10, "text", BLUE),                             # B
     ("Raumbezeichnung", "", "", 18, "text", BLUE),                     # C
     ("Raum-fläche", "A_R", "[m²]", 10, '0.0" m²"', BLUE),              # D
-    ("aktivierbare Fläche", "A_F", "[m²]", 11, '0.0" m²"', BLUE),      # E
-    ("Raumtemperatur", "θi", "[°C]", 11, '0.0" °C"', BLUE),            # F
-    ("Heizlast", "Q", "[W]", 10, '#,##0" W"', BLUE),                   # G
-    ("spez. Heizlast", "q_HL", "[W/m²]", 11, '0.0" W/m²"', BLACK),     # H  (=Q/Raumfläche)
+    ("Raumtemperatur", "θi", "[°C]", 11, '0.0" °C"', BLUE),            # E
+    ("Heizlast", "Q", "[W]", 10, '#,##0" W"', BLUE),                   # F
+    ("spez. Heizlast", "q_HL", "[W/m²]", 11, '0.0" W/m²"', BLACK),     # G  (=Q/Raumfläche)
+    ("aktivierbare Fläche", "A_F", "[m²]", 11, '0.0" m²"', BLUE),      # H
     ("R-Wert Bodenbelag", "R_λ,B", "[m²·K/W]", 12, '0.000', BLUE),     # I
     ("Verlege–abstand", "VA", "[mm]", 11, '0" mm"', BLUE),             # J
     ("Anz.\nHK", "n", "[-]", 9, '0', BLUE),                            # K
@@ -363,7 +367,7 @@ NCOL = len(columns)
 LASTCOL = get_column_letter(NCOL)
 INPUT_COLS = [j for j, c in enumerate(columns, start=1) if c[5] == BLUE]
 CALC_COLS = [j for j, c in enumerate(columns, start=1) if c[5] == BLACK]
-INPUT_STYLED = {8}   # spez. Heizlast: berechnet, aber optisch wie die Eingabespalten
+INPUT_STYLED = {7}   # spez. Heizlast: berechnet, aber optisch wie die Eingabespalten
 for j, (name, sym, unit, width, fmt, color) in enumerate(columns, start=1):
     rl.column_dimensions[get_column_letter(j)].width = width
     is_inp = (color == BLUE) or (j in INPUT_STYLED)
@@ -379,19 +383,19 @@ rl.row_dimensions[UNIT_ROW].height = 14
 
 def F(r):
     return {
-        8:  f'=IF($B{r}="","",IFERROR($G{r}/$D{r},""))',
-        14: f'=IF($B{r}="","",IFERROR(({gV}-{gR})/LN(({gV}-$F{r})/({gR}-$F{r})),""))',
+        7:  f'=IF($B{r}="","",IFERROR($F{r}/$D{r},""))',
+        14: f'=IF($B{r}="","",IFERROR(({gV}-{gR})/LN(({gV}-$E{r})/({gR}-$E{r})),""))',
         15: f'=IF($B{r}="","",IFERROR(1/(1/{galp}+$I{r}+{gsu}/{glam}),""))',
         16: f'=IF($B{r}="","",IFERROR(VLOOKUP($J{r},{VA_RANGE},2,TRUE),""))',
         17: f'=IF(OR($B{r}="",$N{r}="",$O{r}="",$P{r}=""),"",{gfkorr}*$O{r}*$P{r}*$N{r})',
-        18: f'=IF(OR($B{r}="",$Q{r}=""),"",$F{r}+$Q{r}/{galp})',
+        18: f'=IF(OR($B{r}="",$Q{r}=""),"",$E{r}+$Q{r}/{galp})',
         19: f'=IF($B{r}="","",IFERROR(VLOOKUP($M{r},{ZONE_RANGE},2,FALSE),29))',
-        20: f'=IF(OR($B{r}="",$Q{r}=""),"",$Q{r}*$E{r})',
-        21: f'=IF(OR($B{r}="",$T{r}=""),"",$T{r}-$G{r})',
-        22: f'=IF(OR($B{r}="",$T{r}=""),"",IFERROR($T{r}/$G{r},""))',
-        23: f'=IF(OR($B{r}="",$E{r}=""),"",{gqdown}*$E{r})',
-        24: f'=IF(OR($B{r}="",$T{r}=""),"",MIN($T{r},$G{r})+$W{r})',
-        25: f'=IF($B{r}="","",IFERROR($E{r}/($J{r}/1000),""))',
+        20: f'=IF(OR($B{r}="",$Q{r}=""),"",$Q{r}*$H{r})',
+        21: f'=IF(OR($B{r}="",$T{r}=""),"",$T{r}-$F{r})',
+        22: f'=IF(OR($B{r}="",$T{r}=""),"",IFERROR($T{r}/$F{r},""))',
+        23: f'=IF(OR($B{r}="",$H{r}=""),"",{gqdown}*$H{r})',
+        24: f'=IF(OR($B{r}="",$T{r}=""),"",MIN($T{r},$F{r})+$W{r})',
+        25: f'=IF($B{r}="","",IFERROR($H{r}/($J{r}/1000),""))',
         26: f'=IF($B{r}="","",IFERROR(2*$L{r}*$K{r},""))',
         27: f'=IF(OR($B{r}="",$Y{r}="",$Z{r}=""),"",$Y{r}+$Z{r})',
         28: f'=IF(OR($B{r}="",$AA{r}=""),"",IFERROR($AA{r}/$K{r},""))',
@@ -407,15 +411,15 @@ def F(r):
     }
 
 examples = [   # Heizlast so gewählt, dass spez. Heizlast (Q/Raumfläche) <= 50 W/m², bunte Mischung
-    ["HKV EG", "001", "Foyer/Empfang", 40, 36, 20, 1800, 0.00, 100, 3, 6,  "RZ"],   # 45 W/m²
-    ["HKV EG", "002", "Großraumbüro",  60, 55, 20, 2400, 0.10, 150, 4, 8,  "AZ"],   # 40 W/m²
-    ["HKV EG", "003", "Büro 1",        18, 16, 20,  630, 0.10, 150, 1, 5,  "AZ"],   # 35 W/m²
-    ["HKV EG", "004", "Besprechung",   30, 28, 20, 1500, 0.07, 100, 2, 7,  "AZ"],   # 50 W/m²
-    ["HKV EG", "005", "Flur",          25, 22, 20,  750, 0.05, 200, 1, 3,  "AZ"],   # 30 W/m²
-    ["HKV OG", "101", "WC / Sanitär",  12,  9, 24,  600, 0.01, 100, 1, 10, "BAD"],  # 50 W/m²
-    ["HKV OG", "102", "Teeküche",      10,  8, 20,  450, 0.01, 100, 1, 9,  "AZ"],   # 45 W/m²
-    ["HKV OG", "103", "Archiv",        20, 18, 18,  500, 0.05, 200, 1, 12, "AZ"],   # 25 W/m²
-    ["HKV OG", "104", "Technikraum",   15, 12, 15,  300, 0.00, 250, 1, 14, "AZ"],   # 20 W/m²
+    ["HKV EG", "001", "Foyer/Empfang", 40, 20, 1800, 36, 0.00, 100, 3, 6,  "RZ"],   # 45 W/m²
+    ["HKV EG", "002", "Großraumbüro",  60, 20, 2400, 55, 0.10, 150, 4, 8,  "AZ"],   # 40 W/m²
+    ["HKV EG", "003", "Büro 1",        18, 20,  630, 16, 0.10, 150, 1, 5,  "AZ"],   # 35 W/m²
+    ["HKV EG", "004", "Besprechung",   30, 20, 1500, 28, 0.07, 100, 2, 7,  "AZ"],   # 50 W/m²
+    ["HKV EG", "005", "Flur",          25, 20,  750, 22, 0.05, 200, 1, 3,  "AZ"],   # 30 W/m²
+    ["HKV OG", "101", "WC / Sanitär",  12, 24,  600,  9, 0.01, 100, 1, 10, "BAD"],  # 50 W/m²
+    ["HKV OG", "102", "Teeküche",      10, 20,  450,  8, 0.01, 100, 1, 9,  "AZ"],   # 45 W/m²
+    ["HKV OG", "103", "Archiv",        20, 18,  500, 18, 0.05, 200, 1, 12, "AZ"],   # 25 W/m²
+    ["HKV OG", "104", "Technikraum",   15, 15,  300, 12, 0.00, 250, 1, 14, "AZ"],   # 20 W/m²
 ]
 for idx, r in enumerate(range(R0, R1 + 1)):
     fr = F(r)
@@ -450,8 +454,8 @@ cf_pair("AB", f'AND($AB{R0}<>"",$AB{R0}<={gMax})', f'AND($AB{R0}<>"",$AB{R0}>{gM
 cf_pair("AK", f'AND($AK{R0}<>"",$AK{R0}<={gWarn})', f'AND($AK{R0}<>"",$AK{R0}>{gWarn})')
 cf_pair("AE", f'AND($AE{R0}<>"",$AE{R0}>={gvmin},$AE{R0}<={gvmax})',
         f'AND($AE{R0}<>"",OR($AE{R0}<{gvmin},$AE{R0}>{gvmax}))')
-rl.conditional_formatting.add(f"E{R0}:E{R1}", FormulaRule(
-    formula=[f'AND($E{R0}<>"",$D{R0}<>"",$E{R0}>$D{R0})'], fill=RED_FILL))
+rl.conditional_formatting.add(f"H{R0}:H{R1}", FormulaRule(
+    formula=[f'AND($H{R0}<>"",$D{R0}<>"",$H{R0}>$D{R0})'], fill=RED_FILL))
 # schlanker Standard: Zwischen-/Sekundärspalten ausblenden (jederzeit einblendbar)
 for col in ["N", "O", "P", "S", "T", "U", "W", "X", "Y", "Z", "AA", "AC", "AF", "AG", "AH", "AI", "AJ"]:
     rl.column_dimensions[col].hidden = True
@@ -475,7 +479,7 @@ def ovrow(r, label, formula, unit, fmt='#,##0', note=""):
 c = ov.cell(row=5, column=1, value="Summen / Kennzahlen"); c.font = f(bold=True, color=WHITE); c.fill = HDR_FILL
 for col in (2, 3, 4): ov.cell(row=5, column=col).fill = HDR_FILL
 ovrow(6, "Anzahl Räume", f"=COUNTA({AUS}B{R0}:B{R1})", "-", '0')
-ovrow(7, "Gesamte Heizlast", f"=SUM({AUS}G{R0}:G{R1})", "W")
+ovrow(7, "Gesamte Heizlast", f"=SUM({AUS}F{R0}:F{R1})", "W")
 ovrow(8, "Gesamte FBH-Leistung (nach oben)", f"=SUM({AUS}T{R0}:T{R1})", "W")
 ovrow(9, "Verlustleistung nach unten", f"=SUM({AUS}W{R0}:W{R1})", "W")
 ovrow(10, "Maßgebliche Gesamtleistung (Hydraulik)", f"=SUM({AUS}X{R0}:X{R1})", "W")
@@ -884,35 +888,42 @@ left = [
 ]
 right = [
     ("Räume aus Revit übernehmen", "h"),
-    ("Eingabespalten der Auslegung (blau):", ""),
+    ("Spalten der Auslegung (links → rechts):", ""),
     ("A HKV · B Raum-Nr. · C Bezeichnung · D Raumfläche ·", ""),
-    ("E aktiv. Fläche · F Raumtemperatur · G Heizlast ·", ""),
-    ("I R-Wert · J Verlegeabstand · K Anz. Kreise ·", ""),
-    ("L Zuleitung · M Zone", ""),
-    ("Achtung: Spalte H (spez. Heizlast) ist berechnet – nicht überschreiben!", "i"),
+    ("E Raumtemperatur · F Heizlast", ""),
+    ("G spez. Heizlast – berechnet, nicht überschreiben!", "i"),
+    ("H aktiv. Fläche · I R-Wert · J Verlegeabstand ·", ""),
+    ("K Anz. Kreise · L Zuleitung · M Zone", ""),
     ("", ""),
-    ("Variante 1 – Copy & Paste", "sh"),
-    ("• In Revit eine Raumliste (Schedule) anlegen, Spalten in", ""),
-    ("   der Reihenfolge der Auslegung (Nr., Name, Fläche …).", ""),
-    ("• Zeilen markieren → kopieren → in Excel ab erster", ""),
-    ("   Datenzeile mit 'Inhalte einfügen → Werte' einfügen.", ""),
-    ("• Spalte H überspringen: Block A–G und ab I getrennt", ""),
-    ("   einfügen (oder spaltenweise).", ""),
+    ("Workflow: Excel-Export aus Revit", "sh"),
+    ("Das direkte Kopieren aus Revit in Excel funktioniert nicht –", ""),
+    ("es muss zuerst ein Excel-Export aus Revit erzeugt werden.", ""),
+    ("1. In Revit eine Raumliste (Schedule) mit den Spalten A–F", ""),
+    ("   anlegen: HKV, Raum-Nr., Bezeichnung, Raumfläche,", ""),
+    ("   Raumtemperatur, Heizlast.", ""),
+    ("2. Schedule über 'Exportieren → Bericht/Schedule' als", ""),
+    ("   Excel-/CSV-Datei ausgeben.", ""),
+    ("3. Werte aus dem Export in die Auslegung übernehmen –", ""),
+    ("   Spalten A–F, ab erster Datenzeile ('Werte einfügen').", ""),
+    ("4. Spalte G (spez. Heizlast) frei lassen – wird berechnet.", ""),
+    ("5. Spalten H–M im Tool ergänzen (siehe unten).", ""),
     ("", ""),
-    ("Was kommt aus Revit?", "sh"),
-    ("• Aus Revit: Raum-Nr., Bezeichnung, Raumfläche.", ""),
+    ("Was kommt aus Revit (A–F)?", "sh"),
+    ("• HKV, Raum-Nr., Bezeichnung, Raumfläche, Raumtemperatur.", ""),
     ("• Heizlast: aus Heizlastberechnung (DIN 12831) bzw.", ""),
-    ("   Revit-Systemanalyse – meist separat.", ""),
-    ("• R-Wert, Verlegeabstand, Kreise, Zone, HKV: im Tool", ""),
-    ("   festlegen (Planungsentscheidung).", ""),
+    ("   Revit-Systemanalyse – im Schedule mitführen.", ""),
     ("", ""),
-    ("Elegantere Wege", "sh"),
-    ("• Gemeinsame Parameter in Revit pflegen (Zone, HKV,", ""),
-    ("   Verlegeabstand …) → alles in einem Schedule.", ""),
-    ("• Dynamo / pyRevit: Raumparameter automatisch nach", ""),
-    ("   Excel schreiben (aktualisierbar).", ""),
-    ("• Power Query: Schedule als CSV exportieren und", ""),
-    ("   importieren / aktualisieren.", ""),
+    ("Im Tool ergänzen (H–M)", "sh"),
+    ("• aktivierbare Fläche, R-Wert Bodenbelag, Verlegeabstand,", ""),
+    ("   Anzahl Heizkreise, Zuleitungslänge, Zone.", ""),
+    ("• Planungsentscheidungen – kommen nicht aus Revit.", ""),
+    ("", ""),
+    ("Tipp", "sh"),
+    ("• Auch H–M (Zone, Verlegeabstand …) lassen sich als", ""),
+    ("   gemeinsame Parameter in Revit pflegen und mit", ""),
+    ("   exportieren.", ""),
+    ("• Dynamo / pyRevit oder Power Query halten den Export", ""),
+    ("   aktualisierbar.", ""),
 ]
 end_l = anl(2, 3, left)
 end_r = anl(4, 3, right)
