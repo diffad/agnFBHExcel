@@ -125,6 +125,11 @@ CHANGELOG = [
         "Verifikation: Untertitel und Hinweise vereinfacht (Modellvergleich-Erläuterung entfernt); klarer Hinweis, dass der Korrekturfaktor f VOR der Raumauslegung kalibriert wird; Diagramm etwas größer.",
         "Anleitung: Schritt-für-Schritt neu geordnet – Verifikation/Kalibrierung des Korrekturfaktors jetzt VOR der Raumauslegung; neuer Abschnitt 'Planungstechnische Grundlagen'; Hinweis zur vorgefertigten Revit-Liste entfernt.",
     ]),
+    ("0.21", "2026-06-13", [
+        "Auslegung jetzt auf A4-Querformat (vorher A3); sichtbare Spalten schmaler, damit das Blatt auf A4 passt.",
+        "Deckblatt: Titel 'Fußbodenheizung – Auslegung' (Wort 'überschlägige' entfernt); Vereinfachungen bleiben dokumentiert.",
+        "Anleitung: Abschnitt 'Planungstechnische Grundlagen' wieder entfernt.",
+    ]),
 ]
 VERSION = CHANGELOG[-1][0]
 AUTHOR = "dh"
@@ -473,8 +478,15 @@ rl.conditional_formatting.add(f"H{R0}:H{R1}", FormulaRule(
 # schlanker Standard: Zwischen-/Sekundärspalten ausblenden (jederzeit einblendbar)
 for col in ["N", "O", "P", "S", "T", "U", "W", "X", "Y", "Z", "AA", "AC", "AF", "AG", "AH", "AI", "AJ"]:
     rl.column_dimensions[col].hidden = True
+# sichtbare Spalten schmaler, damit das Blatt auf A4-Querformat passt
+narrow = {"A": 13, "B": 8, "C": 16, "D": 8, "E": 9, "F": 9, "G": 10, "H": 9, "I": 9,
+          "J": 9, "K": 7, "L": 9, "M": 6, "Q": 10, "R": 9, "V": 8, "AB": 9,
+          "AD": 10, "AE": 10, "AK": 10}
+for col, w in narrow.items():
+    rl.column_dimensions[col].width = w
+rl.row_dimensions[NAME_ROW].height = 46   # mehr Höhe, da schmale Spalten stärker umbrechen
 disp_header(rl, "Auslegung – Fußbodenheizung", NCOL, "AJ2", "AJ2:AK2")
-setup_print(rl, f"A1:{LASTCOL}{R1}", titles="1:6", orientation="landscape", paper=8)
+setup_print(rl, f"A1:{LASTCOL}{R1}", titles="1:6", orientation="landscape", paper=9)
 
 # =====================================================================
 #  Blatt 3: KONTROLLE
@@ -804,7 +816,7 @@ def box(r1, c1, r2, c2, value=None, fill=None, font=None, align="left", valign="
 
 db.row_dimensions[1].height = 28
 db.merge_cells("A1:H1")
-db["A1"].value = "Fußbodenheizung – überschlägige Auslegung"
+db["A1"].value = "Fußbodenheizung – Auslegung"
 db["A1"].font = Font(name=FONT, bold=True, color=NAVY, size=18); db["A1"].alignment = Alignment(vertical="center")
 db.merge_cells("A2:H2"); db["A2"].value = "Eingaben · Verarbeitung · Ergebnisse"; db["A2"].font = f(color=GREY, size=12)
 db.merge_cells("A3:K3")
@@ -918,19 +930,6 @@ right = [
     ("7. Spalten H–M je Raum ergänzen (aktiv. Fläche, R-Wert,", ""),
     ("    Verlegeabstand, Kreise, Zuleitung, Zone).", ""),
     ("8. Ergebnisse prüfen: Ampel in Auslegung + 'Kontrolle'.", ""),
-    ("", ""),
-    ("Planungstechnische Grundlagen", "h"),
-    ("• Heizlast je Raum (DIN EN 12831) ist die Grundlage.", ""),
-    ("• Vorlauftemperatur niedrig (z. B. 35/28 °C): effizient,", ""),
-    ("   wärmepumpentauglich.", ""),
-    ("• Oberflächentemperatur begrenzt (Aufenthalt ≤ 29 °C,", ""),
-    ("   Randzone ≤ 35 °C, Bad ≤ 33 °C) → begrenzt q.", ""),
-    ("• Enger Verlegeabstand = mehr Leistung (10–30 cm).", ""),
-    ("• Kreise gleich lang halten, Kreislänge begrenzen", ""),
-    ("   (Druckverlust, hydraulischer Abgleich).", ""),
-    ("• Aktivierbare Fläche < Raumfläche; Bodenbelag (R-Wert)", ""),
-    ("   mindert die Leistung.", ""),
-    ("• Überschlägig – ersetzt nicht die Detailplanung (EN 1264).", "i"),
 ]
 end_l = anl(2, 3, left)
 end_r = anl(4, 3, right)
