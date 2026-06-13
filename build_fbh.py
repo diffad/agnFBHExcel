@@ -114,6 +114,12 @@ CHANGELOG = [
         "Auslegung: Eingabespalten neu sortiert – zuerst die Revit-Spalten (A HKV, B Raum-Nr., C Bezeichnung, D Raumfläche, E Raumtemperatur, F Heizlast), dann G spez. Heizlast (berechnet), danach die manuellen Felder (H aktiv. Fläche, I R-Wert, J Verlegeabstand, K Anz. Kreise, L Zuleitung, M Zone).",
         "Anleitung: Excel-Export aus Revit ist jetzt der Standard-Workflow (direktes Kopieren funktioniert nicht); Spaltenliste an neue Reihenfolge angepasst.",
     ]),
+    ("0.19", "2026-06-13", [
+        "Grundeinstellungen: neuer Grenzwert 'Maximaler Volumenstrom je Kreis' (V̇_max, Default 150 l/h); Abschnitt 'Strömungsgeschwindigkeit' → 'Strömungsgrenzwerte'.",
+        "Auslegung: Volumenstrom je Kreis wird gegen V̇_max geprüft und per Ampel eingefärbt (grün ≤ Grenze, rot darüber); zusätzliche Warnung im Blatt 'Kontrolle'.",
+        "Anleitung: durchgehende Schritt-für-Schritt-Anleitung mit integriertem Revit-Export (vorgefertigte Bauteilliste muss nicht erst angelegt werden); redundanter Abschnitt 'Räume aus Revit' und der Hinweis zum direkten Kopieren entfernt.",
+        "Deckblatt: Pfeil-Spalten breiter und Pfeilgröße angepasst (optisch sauberer).",
+    ]),
 ]
 VERSION = CHANGELOG[-1][0]
 AUTHOR = "dh"
@@ -274,9 +280,10 @@ section(14, "Stoffwerte Heizmedium (Wasser ~30 °C)", 1)
 param(15, "Dichte  ρ", 995.7, "kg/m³", "Dichte des Mediums", '0.0', 1)
 param(16, "spezifische Wärmekapazität  c_p", 4180, "J/(kg·K)", "spez. Wärmekapazität", '#,##0', 1)
 param(17, "kinematische Viskosität  ν", 0.000000801, "m²/s", "für die Reynolds-Zahl", '0.00E+00', 1)
-section(19, "Strömungsgeschwindigkeit (Empfehlung)", 1)
+section(19, "Strömungsgrenzwerte", 1)
 param(20, "Minimale Strömungsgeschwindigkeit  v_min", 0.10, "m/s", "untere empfohlene Grenze", '0.00" m/s"', 1)
 param(21, "Maximale Strömungsgeschwindigkeit  v_max", 0.50, "m/s", "obere empfohlene Grenze", '0.00" m/s"', 1)
+param(22, "Maximaler Volumenstrom je Kreis  V̇_max", 150, "l/h", "Warnschwelle je Heizkreis", '0" l/h"', 1)
 section(23, "Druckverlust-Zuschläge", 1)
 param(24, "Zuschlag Einzelwiderstände", 0.05, "-", "Rohr-Formstücke (0,05 = 5 %)", '0%', 1)
 param(25, "Aufschlag Verteiler je Kreis", 500, "Pa", "fester Wert je Verteiler", '#,##0" Pa"', 1)
@@ -311,6 +318,7 @@ gV, gR = f"{G}$C$6", f"{G}$C$7"
 gMax, gWarn = f"{G}$C$11", f"{G}$C$12"
 grho, gcp, gnu = f"{G}$C$15", f"{G}$C$16", f"{G}$C$17"
 gvmin, gvmax = f"{G}$C$20", f"{G}$C$21"
+gVdot = f"{G}$C$22"
 gzus, gVarm = f"{G}$C$24", f"{G}$C$25"
 galp, gsu, glam = f"{G}$J$6", f"{G}$J$7", f"{G}$J$8"
 gqdown = f"{G}$J$13"
@@ -451,6 +459,7 @@ def cf_pair(col, ok_formula, bad_formula):
 cf_pair("R", f'AND($R{R0}<>"",$R{R0}<=$S{R0})', f'AND($R{R0}<>"",$R{R0}>$S{R0})')
 cf_pair("V", f'AND($V{R0}<>"",$V{R0}>=1)', f'AND($V{R0}<>"",$V{R0}<1)')
 cf_pair("AB", f'AND($AB{R0}<>"",$AB{R0}<={gMax})', f'AND($AB{R0}<>"",$AB{R0}>{gMax})')
+cf_pair("AD", f'AND($AD{R0}<>"",$AD{R0}<={gVdot})', f'AND($AD{R0}<>"",$AD{R0}>{gVdot})')
 cf_pair("AK", f'AND($AK{R0}<>"",$AK{R0}<={gWarn})', f'AND($AK{R0}<>"",$AK{R0}>{gWarn})')
 cf_pair("AE", f'AND($AE{R0}<>"",$AE{R0}>={gvmin},$AE{R0}<={gvmax})',
         f'AND($AE{R0}<>"",OR($AE{R0}<{gvmin},$AE{R0}>{gvmax}))')
@@ -497,11 +506,12 @@ ovrow(21, "Kreise zu lang", f'=COUNTIF({AUS}AB{R0}:AB{R1},">"&{gMax})', "-", '0'
 ovrow(22, "Druckverlust über Warnschwelle", f'=COUNTIF({AUS}AK{R0}:AK{R1},">"&{gWarn})', "-", '0')
 ovrow(23, "Oberflächentemperatur zu hoch", f'=SUMPRODUCT(({AUS}R{R0}:R{R1}<>"")*({AUS}R{R0}:R{R1}>{AUS}S{R0}:S{R1}))', "-", '0')
 ovrow(24, "Geschwindigkeit außerhalb v_min–v_max", f'=SUMPRODUCT(({AUS}AE{R0}:AE{R1}<>"")*(({AUS}AE{R0}:AE{R1}<{gvmin})+({AUS}AE{R0}:AE{R1}>{gvmax})))', "-", '0', "Kreise")
-for r in (20, 21, 22, 23, 24):
+ovrow(25, "Volumenstrom je Kreis zu hoch", f'=COUNTIF({AUS}AD{R0}:AD{R1},">"&{gVdot})', "-", '0', "> max. Volumenstrom")
+for r in (20, 21, 22, 23, 24, 25):
     ov.conditional_formatting.add(f"B{r}", FormulaRule(formula=[f"$B${r}>0"], fill=RED_FILL))
     ov.conditional_formatting.add(f"B{r}", FormulaRule(formula=[f"$B${r}=0"], fill=GREEN_FILL))
 disp_header(ov, "Kontrolle / Auswertung", 4, "D2")
-setup_print(ov, "A1:D24")
+setup_print(ov, "A1:D25")
 
 # =====================================================================
 #  Blatt 4: HEIZKREISVERTEILER  (+ Massenstrom)
@@ -763,8 +773,8 @@ setup_print(cl, f"A1:C{r-1}")
 # =====================================================================
 db = wb.create_sheet("Deckblatt", 0)
 db.sheet_view.showGridLines = False
-for col, w in (("A", 14), ("B", 14), ("C", 14), ("D", 4), ("E", 14), ("F", 14),
-               ("G", 14), ("H", 4), ("I", 14), ("J", 14), ("K", 14)):
+for col, w in (("A", 14), ("B", 14), ("C", 14), ("D", 6), ("E", 14), ("F", 14),
+               ("G", 14), ("H", 6), ("I", 14), ("J", 14), ("K", 14)):
     db.column_dimensions[col].width = w
 RED_S = PatternFill("solid", fgColor="E2001A")
 GREEN_S = PatternFill("solid", fgColor="2E7D32")
@@ -800,8 +810,8 @@ box(5, 1, 5, 3, "INPUT  ·  Eingaben", fill=HDR_FILL, font=f(bold=True, color=WH
 box(5, 5, 5, 7, "VERARBEITUNG  ·  Modell", fill=RED_S, font=f(bold=True, color=WHITE, size=12), align="center", valign="center")
 box(5, 9, 5, 11, "OUTPUT  ·  Ergebnisse", fill=GREEN_S, font=f(bold=True, color=WHITE, size=12), align="center", valign="center")
 # Pfeile
-box(6, 4, 24, 4, "→", font=f(bold=True, color="E2001A", size=26), align="center", valign="center", border=False)
-box(6, 8, 24, 8, "→", font=f(bold=True, color="E2001A", size=26), align="center", valign="center", border=False)
+box(6, 4, 24, 4, "→", font=f(bold=True, color="E2001A", size=20), align="center", valign="center", border=False)
+box(6, 8, 24, 8, "→", font=f(bold=True, color="E2001A", size=20), align="center", valign="center", border=False)
 # Inhalte
 INP = ("Global\n• Vor-/Rücklauftemperatur\n• Rohrsystem (da, s, di, k), Stoffwerte\n"
        "• α, Estrich, Dämmung nach unten\n• Grenzwerte (Kreislänge, Δp, v)\n\n"
@@ -870,60 +880,51 @@ left = [
     ("• Konstanten – Nachschlagetabellen", ""),
     ("• Changelog – Versionen", ""),
     ("", ""),
-    ("Schritt für Schritt", "h"),
-    ("1. Grundeinstellungen ausfüllen (Projekt, Temperaturen,", ""),
-    ("    Rohrsystem, Grenzwerte).", ""),
-    ("2. Konstanten prüfen / erweitern (Rohre, R-Werte, Zonen).", ""),
-    ("3. Räume in 'Auslegung' eintragen (blaue Spalten) –", ""),
-    ("    siehe rechts: aus Revit übernehmen.", ""),
-    ("4. Ergebnisse prüfen: Ampel in Auslegung + Blatt 'Kontrolle'.", ""),
-    ("5. Verifikation: Korrekturfaktor f an Herstellerdaten", ""),
-    ("    kalibrieren.", ""),
+    ("Spalten der Auslegung", "h"),
+    ("Aus Revit (A–F):", "sh"),
+    ("HKV, Raum-Nr., Bezeichnung, Raumfläche,", ""),
+    ("Raumtemperatur, Heizlast.", ""),
+    ("Berechnet (G):", "sh"),
+    ("spez. Heizlast – nicht überschreiben.", ""),
+    ("Im Tool ergänzen (H–M):", "sh"),
+    ("aktiv. Fläche, R-Wert, Verlegeabstand,", ""),
+    ("Anz. Kreise, Zuleitung, Zone.", ""),
     ("", ""),
     ("Farblegende", "h"),
     ("• Blau (gelb hinterlegt) = Eingabe", ""),
     ("• Schwarz = berechnet (nicht ändern)", ""),
-    ("• Grün = OK,  Rot = Warnung", ""),
+    ("• Grün = OK,  Rot = Warnung / Grenzwert überschritten", ""),
     ("• Nur die blauen Eingabezellen bearbeiten.", ""),
 ]
 right = [
-    ("Räume aus Revit übernehmen", "h"),
-    ("Spalten der Auslegung (links → rechts):", ""),
-    ("A HKV · B Raum-Nr. · C Bezeichnung · D Raumfläche ·", ""),
-    ("E Raumtemperatur · F Heizlast", ""),
-    ("G spez. Heizlast – berechnet, nicht überschreiben!", "i"),
-    ("H aktiv. Fläche · I R-Wert · J Verlegeabstand ·", ""),
-    ("K Anz. Kreise · L Zuleitung · M Zone", ""),
+    ("Schritt für Schritt", "h"),
+    ("1. Grundeinstellungen ausfüllen: Projekt, Temperaturen,", ""),
+    ("    Rohrsystem, Stoffwerte und Grenzwerte (Kreislänge,", ""),
+    ("    Druckverlust, Geschwindigkeit, Volumenstrom je Kreis).", ""),
+    ("2. Konstanten prüfen / erweitern (Rohre, R-Werte, Zonen).", ""),
+    ("3. In Revit die vorgefertigte Bauteilliste öffnen – sie ist", ""),
+    ("    bereits passend angelegt und enthält die Spalten A–F", ""),
+    ("    (HKV, Raum-Nr., Bezeichnung, Raumfläche,", ""),
+    ("    Raumtemperatur, Heizlast).", ""),
+    ("4. Bauteilliste aus Revit nach Excel exportieren", ""),
+    ("    ('Exportieren → Bericht/Schedule').", ""),
+    ("5. Werte aus dem Export in die Auslegung übernehmen", ""),
+    ("    (Spalten A–F, ab der ersten Datenzeile).", ""),
+    ("6. Spalte G (spez. Heizlast) frei lassen – wird berechnet.", ""),
+    ("7. Spalten H–M je Raum ergänzen: aktivierbare Fläche,", ""),
+    ("    R-Wert Bodenbelag, Verlegeabstand, Anzahl Kreise,", ""),
+    ("    Zuleitungslänge, Zone.", ""),
+    ("8. Ergebnisse prüfen: Ampel in der Auslegung und im", ""),
+    ("    Blatt 'Kontrolle' (Deckung, Kreislänge, Druckverlust,", ""),
+    ("    Geschwindigkeit, Volumenstrom je Kreis).", ""),
+    ("9. Verifikation: Korrekturfaktor f an Herstellerdaten", ""),
+    ("    kalibrieren.", ""),
     ("", ""),
-    ("Workflow: Excel-Export aus Revit", "sh"),
-    ("Das direkte Kopieren aus Revit in Excel funktioniert nicht –", ""),
-    ("es muss zuerst ein Excel-Export aus Revit erzeugt werden.", ""),
-    ("1. In Revit eine Raumliste (Schedule) mit den Spalten A–F", ""),
-    ("   anlegen: HKV, Raum-Nr., Bezeichnung, Raumfläche,", ""),
-    ("   Raumtemperatur, Heizlast.", ""),
-    ("2. Schedule über 'Exportieren → Bericht/Schedule' als", ""),
-    ("   Excel-/CSV-Datei ausgeben.", ""),
-    ("3. Werte aus dem Export in die Auslegung übernehmen –", ""),
-    ("   Spalten A–F, ab erster Datenzeile ('Werte einfügen').", ""),
-    ("4. Spalte G (spez. Heizlast) frei lassen – wird berechnet.", ""),
-    ("5. Spalten H–M im Tool ergänzen (siehe unten).", ""),
-    ("", ""),
-    ("Was kommt aus Revit (A–F)?", "sh"),
-    ("• HKV, Raum-Nr., Bezeichnung, Raumfläche, Raumtemperatur.", ""),
-    ("• Heizlast: aus Heizlastberechnung (DIN 12831) bzw.", ""),
-    ("   Revit-Systemanalyse – im Schedule mitführen.", ""),
-    ("", ""),
-    ("Im Tool ergänzen (H–M)", "sh"),
-    ("• aktivierbare Fläche, R-Wert Bodenbelag, Verlegeabstand,", ""),
-    ("   Anzahl Heizkreise, Zuleitungslänge, Zone.", ""),
-    ("• Planungsentscheidungen – kommen nicht aus Revit.", ""),
-    ("", ""),
-    ("Tipp", "sh"),
-    ("• Auch H–M (Zone, Verlegeabstand …) lassen sich als", ""),
-    ("   gemeinsame Parameter in Revit pflegen und mit", ""),
-    ("   exportieren.", ""),
-    ("• Dynamo / pyRevit oder Power Query halten den Export", ""),
-    ("   aktualisierbar.", ""),
+    ("Hinweis", "sh"),
+    ("Die Bauteilliste in Revit muss nicht erst angelegt werden –", ""),
+    ("sie ist passend zur Auslegung vorbereitet. Bei Bedarf lassen", ""),
+    ("sich auch die Felder H–M (z. B. Zone, Verlegeabstand) als", ""),
+    ("gemeinsame Parameter in Revit pflegen und mit exportieren.", ""),
 ]
 end_l = anl(2, 3, left)
 end_r = anl(4, 3, right)
