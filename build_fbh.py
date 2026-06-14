@@ -137,6 +137,10 @@ CHANGELOG = [
         "Deckblatt: Druck-Hinweis ergänzt – nur die relevanten Blätter (Deckblatt, Grundeinstellungen, Auslegung, Kontrolle, HKV, Anleitung) gemeinsam als 'Aktive Blätter' drucken.",
         "Formelzeichen mit echten Tiefstellungen dargestellt (z. B. q_HL, R_λ,B, V̇_max) – kein Unterstrich mehr in den Kopfzeilen, Grundeinstellungen und der Methodik-Variablenliste.",
     ]),
+    ("0.23", "2026-06-13", [
+        "Auslegung: Formelzeichen größer (besser lesbare Tiefstellungen); Kopfzeilen-Umbrüche optimiert – keine Trennung mehr mitten im Wort.",
+        "Deckblatt: Druck-Hinweis wieder entfernt.",
+    ]),
 ]
 VERSION = CHANGELOG[-1][0]
 AUTHOR = "dh"
@@ -371,24 +375,24 @@ rl = wb.create_sheet("Auslegung")
 rl.sheet_view.showGridLines = False
 # Überschriften vom Nutzer optimiert (Wortrennungen beibehalten); Formelzeichen ergänzt.
 columns = [
-    ("Heizkreisverteiler", "HKV", "", 16, "text", BLUE),               # A
+    ("Heizkreis-\nverteiler", "HKV", "", 16, "text", BLUE),            # A
     ("Raum-Nr.", "", "", 10, "text", BLUE),                             # B
-    ("Raumbezeichnung", "", "", 18, "text", BLUE),                     # C
+    ("Raum-\nbezeichnung", "", "", 18, "text", BLUE),                  # C
     ("Raum-fläche", "A_R", "[m²]", 10, '0.0" m²"', BLUE),              # D
-    ("Raumtemperatur", "θi", "[°C]", 11, '0.0" °C"', BLUE),            # E
+    ("Raum-\ntemperatur", "θi", "[°C]", 11, '0.0" °C"', BLUE),         # E
     ("Heizlast", "Q", "[W]", 10, '#,##0" W"', BLUE),                   # F
     ("spez. Heizlast", "q_HL", "[W/m²]", 11, '0.0" W/m²"', BLACK),     # G  (=Q/Raumfläche)
-    ("aktivierbare Fläche", "A_F", "[m²]", 11, '0.0" m²"', BLUE),      # H
-    ("R-Wert Bodenbelag", "R_λ,B", "[m²·K/W]", 12, '0.000', BLUE),     # I
+    ("aktivier-\nbare Fläche", "A_F", "[m²]", 11, '0.0" m²"', BLUE),   # H
+    ("R-Wert\nBodenbelag", "R_λ,B", "[m²·K/W]", 12, '0.000', BLUE),    # I
     ("Verlege–abstand", "VA", "[mm]", 11, '0" mm"', BLUE),             # J
     ("Anz.\nHK", "n", "[-]", 9, '0', BLUE),                            # K
-    ("Zuleitungslänge", "L_zu", "[m]", 11, '0.0" m"', BLUE),           # L
+    ("Zuleitungs-\nlänge", "L_zu", "[m]", 11, '0.0" m"', BLUE),        # L
     ("Zone", "", "", 7, "text", BLUE),                                 # M (Kürzel)
     ("log. Übertemperatur", "ΔθH", "[K]", 12, '0.00" K"', BLACK),      # N
     ("Wärmedurchgang", "K_H", "[W/m²K]", 11, '0.000', BLACK),          # O
     ("Verlegeabstand-Faktor", "η", "[-]", 11, '0.000', BLACK),         # P
-    ("spez. Heizleistung", "q", "[W/m²]", 12, '0.0" W/m²"', BLACK),    # Q
-    ("Oberflächentemperatur", "θF", "[°C]", 11, '0.0" °C"', BLACK),    # R
+    ("spez. Heiz-\nleistung", "q", "[W/m²]", 12, '0.0" W/m²"', BLACK), # Q
+    ("Ober-\nflächen-\ntemperatur", "θF", "[°C]", 11, '0.0" °C"', BLACK),  # R
     ("max. Oberflächentemp.", "θF,max", "[°C]", 11, '0.0" °C"', BLACK),# S
     ("Leistung FBH nach oben", "Q_o", "[W]", 12, '#,##0" W"', BLACK),  # T
     ("Deckung absolut", "ΔQ", "[W]", 12, '#,##0" W"', BLACK),          # U
@@ -407,7 +411,7 @@ columns = [
     ("Rohrreibungszahl", "λ", "[-]", 11, '0.0000', BLACK),             # AH
     ("Δp Reibung", "Δp_R", "[Pa]", 11, '#,##0" Pa"', BLACK),           # AI
     ("spez. Druckverlust", "R", "[Pa/m]", 12, '#,##0" Pa/m"', BLACK),  # AJ
-    ("Druckverlust", "Δp", "[Pa]", 12, '#,##0" Pa"', BLACK),           # AK
+    ("Druck-\nverlust", "Δp", "[Pa]", 12, '#,##0" Pa"', BLACK),        # AK
 ]  # A..AK = 37
 NCOL = len(columns)
 LASTCOL = get_column_letter(NCOL)
@@ -419,13 +423,13 @@ for j, (name, sym, unit, width, fmt, color) in enumerate(columns, start=1):
     is_inp = (color == BLUE) or (j in INPUT_STYLED)
     fill = SUB_FILL if is_inp else HDR_FILL
     tcol = NAVY if is_inp else WHITE
-    for row, txt, sz in ((NAME_ROW, name, 10), (SYM_ROW, sym, 10), (UNIT_ROW, unit, 9)):
+    for row, txt, sz in ((NAME_ROW, name, 10), (SYM_ROW, sym, 13), (UNIT_ROW, unit, 9)):
         val = fz(txt, color=tcol, bold=True, size=sz) if row == SYM_ROW else txt
         c = rl.cell(row=row, column=j, value=val)
         c.fill = fill; c.font = f(bold=True, color=tcol, size=sz)
         c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True); c.border = BORDER
 rl.row_dimensions[NAME_ROW].height = 34
-rl.row_dimensions[SYM_ROW].height = 14
+rl.row_dimensions[SYM_ROW].height = 20
 rl.row_dimensions[UNIT_ROW].height = 14
 
 def F(r):
@@ -508,8 +512,8 @@ rl.conditional_formatting.add(f"H{R0}:H{R1}", FormulaRule(
 for col in ["N", "O", "P", "S", "T", "U", "W", "X", "Y", "Z", "AA", "AC", "AF", "AG", "AH", "AI", "AJ"]:
     rl.column_dimensions[col].hidden = True
 # sichtbare Spalten schmaler, damit das Blatt auf A4-Querformat passt
-narrow = {"A": 13, "B": 8, "C": 16, "D": 8, "E": 9, "F": 9, "G": 10, "H": 9, "I": 9,
-          "J": 9, "K": 7, "L": 9, "M": 6, "Q": 10, "R": 9, "V": 8, "AB": 9,
+narrow = {"A": 13, "B": 8, "C": 16, "D": 8, "E": 11, "F": 9, "G": 10, "H": 9, "I": 11,
+          "J": 9, "K": 7, "L": 11, "M": 6, "Q": 11, "R": 11, "V": 8, "AB": 9,
           "AD": 10, "AE": 10, "AK": 10}
 for col, w in narrow.items():
     rl.column_dimensions[col].width = w
@@ -887,21 +891,11 @@ box(27, 1, 29, 11,
     "pauschaler Druckverlust-Zuschlag + fester Verteiler-Aufschlag",
     fill=AMB_B, font=f(color=BLACK, size=10.5), align="left", valign="center")
 db.row_dimensions[26].height = 18
-# Druck-Hinweis: nur die relevanten Auslegungs-Blätter ausgeben
-box(31, 1, 31, 11, "Drucken – Auslegungsunterlagen", fill=HDR_FILL,
-    font=f(bold=True, color=WHITE, size=11), align="left", valign="center")
-box(32, 1, 33, 11,
-    "Für die Ausgabe der Auslegung die Blätter  Deckblatt · Grundeinstellungen · Auslegung · "
-    "Kontrolle · HKV · Anleitung  mit Strg gemeinsam markieren und  Datei > Drucken > "
-    "'Aktive Blätter drucken'  wählen.   (Verifikation, Methodik, Konstanten und Changelog "
-    "sind Referenz und werden dabei nicht mitgedruckt.)",
-    fill=BODY_S, font=f(color=BLACK, size=10.5), align="left", valign="center")
-db.row_dimensions[31].height = 18
 db.page_setup.orientation = "landscape"
 db.page_setup.paperSize = 9
 db.sheet_properties.pageSetUpPr = PageSetupProperties(fitToPage=True)
 db.page_setup.fitToWidth = 1; db.page_setup.fitToHeight = 1
-db.print_area = "A1:K33"
+db.print_area = "A1:K29"
 db.page_margins.left = db.page_margins.right = 0.3
 db.page_margins.top = db.page_margins.bottom = 0.3
 
