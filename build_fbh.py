@@ -141,6 +141,10 @@ CHANGELOG = [
         "Auslegung: Formelzeichen größer (besser lesbare Tiefstellungen); Kopfzeilen-Umbrüche optimiert – keine Trennung mehr mitten im Wort.",
         "Deckblatt: Druck-Hinweis wieder entfernt.",
     ]),
+    ("0.24", "2026-06-14", [
+        "Verifikation: Referenzspalte mit echten Werten nach DIN EN 1264 vorbelegt (Nasssystem/Tacker, VL 40 / RL 30 °C, θi 20 °C, R = 0,10 m²K/W); Vergleichsbedingungen entsprechend auf 40/30 °C gesetzt.",
+        "Verifikation: Korrekturfaktor f auf 0,85 vorkalibriert (Best-Fit zu den EN-1264-Werten); Spalte C bleibt editierbar für herstellereigene Datenblattwerte (Rehau, Uponor, Buderus, Kermi …).",
+    ]),
 ]
 VERSION = CHANGELOG[-1][0]
 AUTHOR = "dh"
@@ -606,7 +610,7 @@ for col, w in (("A", 20), ("B", 13), ("C", 14), ("D", 14), ("E", 11), ("F", 10),
 vf.cell(row=5, column=1, value="Korrekturfaktor Heizleistung  f =").font = f(bold=True, color=NAVY, size=11)
 vf.merge_cells("A5:B5"); vf["A5"].fill = ACCENT_FILL; vf["B5"].fill = ACCENT_FILL
 vf["A5"].alignment = Alignment(horizontal="right", vertical="center")
-fk = vf.cell(row=5, column=3, value=1.00); fk.font = f(bold=True, color=BLUE, size=11); fk.fill = INPUT_FILL
+fk = vf.cell(row=5, column=3, value=0.85); fk.font = f(bold=True, color=BLUE, size=11); fk.fill = INPUT_FILL
 fk.border = BORDER; fk.alignment = Alignment(horizontal="center", vertical="center"); fk.number_format = '0.000'
 vf.cell(row=5, column=4, value="← an Herstellerdaten anpassen").font = f(italic=True, color=GREY, size=9)
 vf.row_dimensions[5].height = 22
@@ -617,13 +621,13 @@ def vparam(row, label, value, unit, fmt):
     vf.cell(row=row, column=1, value=label).font = f()
     v = vf.cell(row=row, column=2, value=value); v.font = f(bold=True, color=BLUE); v.fill = INPUT_FILL; v.border = BORDER; v.alignment = CEN; v.number_format = fmt
     vf.cell(row=row, column=3, value=unit).font = f(color=GREY)
-vparam(8, "Vorlauftemperatur  θV", 35, "°C", '0.0" °C"')
-vparam(9, "Rücklauftemperatur  θR", 28, "°C", '0.0" °C"')
+vparam(8, "Vorlauftemperatur  θV", 40, "°C", '0.0" °C"')
+vparam(9, "Rücklauftemperatur  θR", 30, "°C", '0.0" °C"')
 vparam(10, "Raumtemperatur  θi", 20, "°C", '0.0" °C"')
 vparam(11, "R-Wert Bodenbelag", 0.10, "m²K/W", '0.000')
 vf.cell(row=12, column=1, value="q berechnet = f · η(VA) · K_H · ΔθH").font = f(italic=True, color=GREY, size=9)
 vf.merge_cells("A12:D12")
-vhdr = ["Verlegeabstand [mm]", "q berechnet [W/m²]", "Hersteller q [W/m²]", "Abweichung [W/m²]",
+vhdr = ["Verlegeabstand [mm]", "q berechnet [W/m²]", "Referenz q\nEN 1264 [W/m²]", "Abweichung [W/m²]",
         "Abweichung [%]", "ΔθH [K]", "K_H [W/m²K]", "η [-]"]
 VT = 14
 for j, h in enumerate(vhdr, start=1):
@@ -634,7 +638,9 @@ for j, h in enumerate(vhdr, start=1):
 vf.row_dimensions[VT].height = 42
 V0 = VT + 1
 va_values = [50, 75, 100, 125, 150, 200, 250, 300]
-hq_example = [54, 52, 51, 49, 47, 43, 40, 37]
+# Referenzwerte nach DIN EN 1264 (Nasssystem/Tacker, Standardestrich), VL 40 / RL 30 °C,
+# θi 20 °C, Bodenbelag R_λ,B = 0,10 m²K/W. Quelle: Leistungstabelle fussbodenheizung24.de.
+hq_example = [60, 57, 54, 51, 49, 44, 40, 36]
 V1 = V0 + len(va_values) - 1
 for i, va in enumerate(va_values):
     r = V0 + i
@@ -662,11 +668,14 @@ vf.add_chart(chart, "J5")   # rechts neben den Tabellen
 nr = V1 + 2
 for i, (txt, kind) in enumerate([
     ("Hinweise", "h"),
-    ("• Hersteller-q je Verlegeabstand aus dem Datenblatt in Spalte C eintragen.", ""),
-    ("• Korrekturfaktor f oben so einstellen, dass berechnetes q und Hersteller-q", ""),
-    ("   möglichst übereinstimmen (Abweichung grün).", ""),
-    ("• Der so kalibrierte Faktor f gilt für die gesamte Auslegung – daher VOR", "i"),
-    ("   der Raumauslegung kalibrieren.", "i")]):
+    ("• Referenzwerte (Spalte C) nach DIN EN 1264 – Nasssystem/Tacker, Standardestrich,", ""),
+    ("   VL 40 / RL 30 °C, θi 20 °C, Bodenbelag R = 0,10 m²K/W. Quelle: fussbodenheizung24.de.", ""),
+    ("• Alle nach EN 1264 zertifizierten Systeme (Rehau, Uponor, Buderus, Kermi …) liegen", ""),
+    ("   nah an diesen Werten – herstellereigene Datenblattwerte einfach in Spalte C eintragen.", ""),
+    ("• Korrekturfaktor f oben so einstellen, dass berechnetes q und Referenz-q übereinstimmen", ""),
+    ("   (Abweichung grün). f ≈ 0,85 passt zu den EN-1264-Werten oben.", ""),
+    ("• Der kalibrierte Faktor f gilt für die gesamte Auslegung – daher VOR der Raumauslegung", "i"),
+    ("   kalibrieren.", "i")]):
     c = vf.cell(row=nr + i, column=1, value=txt)
     if kind == "h": c.font = f(bold=True, color=NAVY, size=11)
     elif kind == "i": c.font = f(italic=True, color=GREY, size=9)
