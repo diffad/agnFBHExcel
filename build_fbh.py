@@ -145,6 +145,9 @@ CHANGELOG = [
         "Verifikation: Referenzspalte mit echten Werten nach DIN EN 1264 vorbelegt (Nasssystem/Tacker, VL 40 / RL 30 °C, θi 20 °C, R = 0,10 m²K/W); Vergleichsbedingungen entsprechend auf 40/30 °C gesetzt.",
         "Verifikation: Korrekturfaktor f auf 0,85 vorkalibriert (Best-Fit zu den EN-1264-Werten); Spalte C bleibt editierbar für herstellereigene Datenblattwerte (Rehau, Uponor, Buderus, Kermi …).",
     ]),
+    ("0.25", "2026-06-14", [
+        "Begriff 'Korrekturfaktor' in 'Systemfaktor (EN-1264-Kalibrierung)' umbenannt (Verifikation, Methodik, Deckblatt, Anleitung) – f ist die bewusste Kalibrierung des überschlägigen Modells an EN 1264, kein Fehlerfaktor.",
+    ]),
 ]
 VERSION = CHANGELOG[-1][0]
 AUTHOR = "dh"
@@ -607,7 +610,7 @@ vf = wb.create_sheet("Verifikation")
 vf.sheet_view.showGridLines = False
 for col, w in (("A", 20), ("B", 13), ("C", 14), ("D", 14), ("E", 11), ("F", 10), ("G", 11), ("H", 8), ("I", 2)):
     vf.column_dimensions[col].width = w
-vf.cell(row=5, column=1, value="Korrekturfaktor Heizleistung  f =").font = f(bold=True, color=NAVY, size=11)
+vf.cell(row=5, column=1, value="Systemfaktor (EN 1264)  f =").font = f(bold=True, color=NAVY, size=11)
 vf.merge_cells("A5:B5"); vf["A5"].fill = ACCENT_FILL; vf["B5"].fill = ACCENT_FILL
 vf["A5"].alignment = Alignment(horizontal="right", vertical="center")
 fk = vf.cell(row=5, column=3, value=0.85); fk.font = f(bold=True, color=BLUE, size=11); fk.fill = INPUT_FILL
@@ -672,16 +675,17 @@ for i, (txt, kind) in enumerate([
     ("   VL 40 / RL 30 °C, θi 20 °C, Bodenbelag R = 0,10 m²K/W. Quelle: fussbodenheizung24.de.", ""),
     ("• Alle nach EN 1264 zertifizierten Systeme (Rehau, Uponor, Buderus, Kermi …) liegen", ""),
     ("   nah an diesen Werten – herstellereigene Datenblattwerte einfach in Spalte C eintragen.", ""),
-    ("• Korrekturfaktor f oben so einstellen, dass berechnetes q und Referenz-q übereinstimmen", ""),
+    ("• Systemfaktor f oben so einstellen, dass berechnetes q und Referenz-q übereinstimmen", ""),
     ("   (Abweichung grün). f ≈ 0,85 passt zu den EN-1264-Werten oben.", ""),
-    ("• Der kalibrierte Faktor f gilt für die gesamte Auslegung – daher VOR der Raumauslegung", "i"),
+    ("• f bündelt die im überschlägigen Modell vereinfachten Effekte (Rohrwand-, Estrich-", "i"),
+    ("   spreizungs-Widerstand). Gilt für die gesamte Auslegung – daher VOR der Raumauslegung", "i"),
     ("   kalibrieren.", "i")]):
     c = vf.cell(row=nr + i, column=1, value=txt)
     if kind == "h": c.font = f(bold=True, color=NAVY, size=11)
     elif kind == "i": c.font = f(italic=True, color=GREY, size=9)
     else: c.font = f()
 disp_header(vf, "Verifikation – Abgleich mit Herstellerdaten", 16, project=True)
-setup_print(vf, f"A1:Q{max(nr + 4, 24)}")
+setup_print(vf, f"A1:Q{max(nr + 10, 24)}")
 
 # =====================================================================
 #  Blatt 6: METHODIK
@@ -712,7 +716,7 @@ vars_ = [
     ("q — spez. Heizleistung nach oben [W/m²]", ""), ("α — Wärmeübergang Oberfläche [W/m²K]", ""),
     ("R_Belag — Widerstand Bodenbelag [m²K/W]", ""), ("s_ü — Estrichüberdeckung [m]", ""),
     ("λ_E — Wärmeleitfähigkeit Estrich [W/mK]", ""), ("K_H — Wärmedurchgang nach oben [W/m²K]", ""),
-    ("η_VA — Verlegeabstandsfaktor [-]", ""), ("f — Korrekturfaktor Heizleistung [-]", ""),
+    ("η_VA — Verlegeabstandsfaktor [-]", ""), ("f — Systemfaktor (EN-1264-Kalibrierung) [-]", ""),
     ("R_u — Widerstand nach unten [m²K/W]", ""), ("q_u — Wärmestrom nach unten [W/m²]", ""),
     ("θF, θF,max — Oberflächentemp. / Grenze [°C]", ""), ("di, A_i — Rohr-Innen-Ø / -Querschnitt", ""),
     ("ρ, c_p, ν — Dichte / Wärmekap. / Viskosität", ""), ("ṁ, V̇ — Massen-/Volumenstrom [kg/h]/[l/h]", ""),
@@ -878,7 +882,7 @@ INP = ("Global\n• Vor-/Rücklauftemperatur\n• Rohrsystem (da, s, di, k), Sto
        "• α, Estrich, Dämmung nach unten\n• Grenzwerte (Kreislänge, Δp, v)\n\n"
        "Je Raum\n• Fläche (Raum / aktivierbar)\n• Heizlast, Raumtemperatur\n"
        "• R-Wert Belag, Verlegeabstand\n• Anzahl Kreise, Zuleitung, Zone, HKV\n\n"
-       "Kalibrierung\n• Korrekturfaktor f")
+       "Kalibrierung\n• Systemfaktor f (EN 1264)")
 VER = ("• log. Übertemperatur ΔθH\n• K_H · η (Verlegeabstand)\n• q = f · η · K_H · ΔθH\n"
        "• Oberflächentemperatur θF\n• Heizlastdeckung\n• Wärmeabgabe nach unten\n"
        "• maßgebl. Leistung → Massenstrom\n• Darcy-Weisbach: v, Re, λ, Δp\n• Rohrlängen je Kreis")
@@ -895,7 +899,7 @@ db.row_dimensions[5].height = 22
 box(26, 1, 26, 11, "Vereinfachungen (überschlägig)", fill=AMB_H, font=f(bold=True, color=AMBER, size=11), align="left", valign="center")
 box(27, 1, 29, 11,
     "Vereinfachtes K_H + Verlegeabstand-Faktor statt vollständigem EN 1264   ·   "
-    "Rohrwandwiderstand nicht enthalten (→ Korrekturfaktor f)   ·   "
+    "Rohrwandwiderstand nicht enthalten (→ Systemfaktor f)   ·   "
     "Wärmeabgabe nach unten global (gleiche Dämmung)   ·   "
     "pauschaler Druckverlust-Zuschlag + fester Verteiler-Aufschlag",
     fill=AMB_B, font=f(color=BLACK, size=10.5), align="left", valign="center")
@@ -963,7 +967,7 @@ right = [
     ("1. Grundeinstellungen ausfüllen: Temperaturen, Rohr-", ""),
     ("    system, Stoffwerte, Grenzwerte.", ""),
     ("2. Konstanten prüfen / erweitern (Rohre, R-Werte, Zonen).", ""),
-    ("3. Verifikation: Korrekturfaktor f kalibrieren – VOR der", ""),
+    ("3. Verifikation: Systemfaktor f kalibrieren – VOR der", ""),
     ("    Raumauslegung (er wirkt auf alle Räume).", ""),
     ("4. Bauteilliste (Schedule) aus Revit nach Excel exportieren", ""),
     ("    – Spalten A–F (HKV, Raum-Nr., Bezeichnung, Raum-", ""),
