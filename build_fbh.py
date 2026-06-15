@@ -161,6 +161,13 @@ CHANGELOG = [
         "HKV-Liste: Spalte 'angebundene Räume' deutlich breiter (lange/viele Raumnummern werden vollständig dargestellt).",
         "Konstanten: R-Werte-Tabelle der Bodenbeläge erweitert (11 Beläge statt 5) und nach rechts gestellt; Zonen-Tabelle nach links – so kann die R-Werte-Tabelle höher werden.",
     ]),
+    ("0.28", "2026-06-15", [
+        "Blattschutz: Zeilenhöhe und Spaltenbreite bleiben trotz Schutz änderbar – in der HKV-Liste lässt sich die Zeilenhöhe für lange Raumlisten jetzt wieder anpassen (optimale Höhe).",
+        "Auslegung: Spalte 'R-Wert Bodenbelag' → Auswahl jetzt über den Bodenbelag-Namen (Dropdown), der R-Wert wird automatisch aus den Konstanten gezogen – man sieht den Belag statt nur die Zahl.",
+        "Auslegung: Bearbeiter-Feld oben rechts als zwei Zellen (Label + eigenes Eingabefeld) und auf sichtbaren Spalten – der Eintrag wird nicht mehr abgeschnitten.",
+        "Verifikation: 15 statt 8 Referenzpunkte nach DIN EN 1264 (mehr Prüfstellen: Verlegeabstand 100–300 mm, VL 40/45/50 °C, R 0,00–0,15 m²K/W).",
+        "Konstanten: R-Werte-Tabelle auf 17 Beläge erweitert (inkl. 'ohne Belag'); Zonen-Tabelle auf gleiche Höhe wie Verlegeabstand-Tabelle; Leerspalte zwischen Zonen und R-Werten.",
+    ]),
 ]
 VERSION = CHANGELOG[-1][0]
 AUTHOR = "dh"
@@ -286,8 +293,9 @@ wb = Workbook()
 # ---- Referenzen auf KONSTANTEN ----
 K = "'Konstanten'!"
 VA_RANGE = f"{K}$A$6:$B$13"
-RW_RANGE = f"{K}$H$6:$H$19"; RW_LIST = RW_RANGE               # R-Werte rechts (Spalten G/H), höher
-ZONE_RANGE = f"{K}$E$6:$F$10"; ZONE_LIST = f"{K}$E$6:$E$10"   # Zonen links (D/E/F): Kürzel -> θF,max
+RW_NAME_LIST = f"{K}$H$6:$H$25"   # Dropdown: Bodenbelag-Bezeichnung (Spalte H)
+RW_LOOKUP = f"{K}$H$6:$I$25"      # VLOOKUP Bodenbelag -> R-Wert (Spalten H/I)
+ZONE_RANGE = f"{K}$E$6:$F$13"; ZONE_LIST = f"{K}$E$6:$E$13"   # Zonen links (D/E/F): Kürzel -> θF,max
 PIPE_RANGE = f"{K}$A$18:$E$25"; PIPE_LIST = f"{K}$A$18:$A$25"
 
 # =====================================================================
@@ -403,7 +411,7 @@ columns = [
     ("Heizlast", "Q", "[W]", 10, '#,##0" W"', BLUE),                   # F
     ("spez. Heizlast", "q_HL", "[W/m²]", 11, '0.0" W/m²"', BLACK),     # G  (=Q/Raumfläche)
     ("aktivier-\nbare Fläche", "A_F", "[m²]", 11, '0.0" m²"', BLUE),   # H
-    ("R-Wert\nBodenbelag", "R_λ,B", "[m²·K/W]", 12, '0.000', BLUE),    # I
+    ("Boden-\nbelag", "", "", 16, "text", BLUE),                       # I (Dropdown Belag-Name → R-Wert via Konstanten)
     ("Verlege–abstand", "VA", "[mm]", 11, '0" mm"', BLUE),             # J
     ("Anz.\nHK", "n", "[-]", 9, '0" HK"', BLUE),                       # K
     ("Zuleitungs-\nlänge", "L_zu", "[m]", 11, '0.0" m"', BLUE),        # L
@@ -456,7 +464,7 @@ def F(r):
     return {
         7:  f'=IF($B{r}="","",IFERROR($F{r}/$D{r},""))',
         14: f'=IF($B{r}="","",IFERROR(({gV}-{gR})/LN(({gV}-$E{r})/({gR}-$E{r})),""))',
-        15: f'=IF($B{r}="","",IFERROR(1/(1/{galp}+$I{r}+{gsu}/{glam}),""))',
+        15: f'=IF($B{r}="","",IFERROR(1/(1/{galp}+IFERROR(VLOOKUP($I{r},{RW_LOOKUP},2,FALSE),0)+{gsu}/{glam}),""))',
         16: f'=IF($B{r}="","",IFERROR(VLOOKUP($J{r},{VA_RANGE},2,TRUE),""))',
         17: f'=IF(OR($B{r}="",$N{r}="",$O{r}="",$P{r}=""),"",{gfkorr}*$O{r}*$P{r}*$N{r})',
         18: f'=IF(OR($B{r}="",$Q{r}=""),"",$E{r}+$Q{r}/{galp})',
@@ -482,15 +490,15 @@ def F(r):
     }
 
 examples = [   # Heizlast so gewählt, dass spez. Heizlast (Q/Raumfläche) <= 50 W/m², bunte Mischung
-    ["HKV EG", "001", "Foyer/Empfang", 40, 20, 1800, 36, 0.00, 100, 3, 6,  "RZ"],   # 45 W/m²
-    ["HKV EG", "002", "Großraumbüro",  60, 20, 2400, 55, 0.10, 150, 4, 8,  "AZ"],   # 40 W/m²
-    ["HKV EG", "003", "Büro 1",        18, 20,  630, 16, 0.10, 150, 1, 5,  "AZ"],   # 35 W/m²
-    ["HKV EG", "004", "Besprechung",   30, 20, 1500, 28, 0.07, 100, 2, 7,  "AZ"],   # 50 W/m²
-    ["HKV EG", "005", "Flur",          25, 20,  750, 22, 0.05, 200, 1, 3,  "AZ"],   # 30 W/m²
-    ["HKV OG", "101", "WC / Sanitär",  12, 24,  600,  9, 0.01, 100, 1, 10, "BAD"],  # 50 W/m²
-    ["HKV OG", "102", "Teeküche",      10, 20,  450,  8, 0.01, 100, 1, 9,  "AZ"],   # 45 W/m²
-    ["HKV OG", "103", "Archiv",        20, 18,  500, 18, 0.05, 200, 1, 12, "AZ"],   # 25 W/m²
-    ["HKV OG", "104", "Technikraum",   15, 15,  300, 12, 0.00, 250, 1, 14, "AZ"],   # 20 W/m²
+    ["HKV EG", "001", "Foyer/Empfang", 40, 20, 1800, 36, "ohne Belag (roh)",        100, 3, 6,  "RZ"],   # 45 W/m²
+    ["HKV EG", "002", "Großraumbüro",  60, 20, 2400, 55, "Teppich (dünn)",          150, 4, 8,  "AZ"],   # 40 W/m²
+    ["HKV EG", "003", "Büro 1",        18, 20,  630, 16, "Teppich (dünn)",          150, 1, 5,  "AZ"],   # 35 W/m²
+    ["HKV EG", "004", "Besprechung",   30, 20, 1500, 28, "Parkett / Fertigparkett", 100, 2, 7,  "AZ"],   # 50 W/m²
+    ["HKV EG", "005", "Flur",          25, 20,  750, 22, "Linoleum 2,5 mm",         200, 1, 3,  "AZ"],   # 30 W/m²
+    ["HKV OG", "101", "WC / Sanitär",  12, 24,  600,  9, "Keramik / Feinsteinzeug", 100, 1, 10, "BAD"],  # 50 W/m²
+    ["HKV OG", "102", "Teeküche",      10, 20,  450,  8, "Keramik / Feinsteinzeug", 100, 1, 9,  "AZ"],   # 45 W/m²
+    ["HKV OG", "103", "Archiv",        20, 18,  500, 18, "Linoleum 2,5 mm",         200, 1, 12, "AZ"],   # 25 W/m²
+    ["HKV OG", "104", "Technikraum",   15, 15,  300, 12, "ohne Belag (roh)",        250, 1, 14, "AZ"],   # 20 W/m²
 ]
 for idx, r in enumerate(range(R0, R1 + 1)):
     fr = F(r)
@@ -500,7 +508,7 @@ for idx, r in enumerate(range(R0, R1 + 1)):
         c.font = f(color=BLUE); c.fill = INPUT_FILL; c.border = BORDER
         fmt = columns[j - 1][4]
         if fmt != "text": c.number_format = fmt
-        c.alignment = Alignment(horizontal="left" if j in (1, 2, 3) else "center")
+        c.alignment = Alignment(horizontal="left" if j in (1, 2, 3, 9) else "center")
     for j in CALC_COLS:
         c = rl.cell(row=r, column=j, value=fr[j])
         c.font = f(color=BLACK); c.border = BORDER
@@ -512,7 +520,7 @@ for idx, r in enumerate(range(R0, R1 + 1)):
 rl.freeze_panes = "C7"
 dv_zone = DataValidation(type="list", formula1=f"={ZONE_LIST}", allow_blank=True, showErrorMessage=False)
 rl.add_data_validation(dv_zone); dv_zone.add(f"M{R0}:M{R1}")
-dv_rw = DataValidation(type="list", formula1=f"={RW_LIST}", allow_blank=True, showErrorMessage=False)
+dv_rw = DataValidation(type="list", formula1=f"={RW_NAME_LIST}", allow_blank=True, showErrorMessage=False)
 rl.add_data_validation(dv_rw); dv_rw.add(f"I{R0}:I{R1}")
 
 def cf_pair(col, ok_formula, bad_formula):
@@ -533,13 +541,22 @@ rl.conditional_formatting.add(f"H{R0}:H{R1}", FormulaRule(
 for col in ["N", "O", "P", "S", "U", "W", "X", "Y", "Z", "AA", "AC", "AF", "AG", "AH", "AI", "AJ"]:
     rl.column_dimensions[col].hidden = True
 # sichtbare Spalten schmaler, damit das Blatt auf A4-Querformat passt
-narrow = {"A": 13, "B": 11, "C": 16, "D": 8, "E": 11, "F": 9, "G": 10, "H": 9, "I": 11,
+narrow = {"A": 13, "B": 11, "C": 16, "D": 8, "E": 11, "F": 9, "G": 10, "H": 9, "I": 18,
           "J": 9, "K": 8, "L": 11, "M": 6, "Q": 11, "R": 11, "T": 9, "V": 8,
           "AB": 9, "AD": 10, "AE": 10, "AK": 10}
 for col, w in narrow.items():
     rl.column_dimensions[col].width = w
 rl.row_dimensions[NAME_ROW].height = 46   # mehr Höhe, da schmale Spalten stärker umbrechen
-disp_header(rl, "Auslegung – Fußbodenheizung", NCOL, "AJ2", "AJ2:AK2")
+disp_header(rl, "Auslegung – Fußbodenheizung", NCOL)
+# Bearbeiter oben rechts: Label + eigenes (editierbares) Eingabefeld – zwei Zellen,
+# damit der Eintrag nicht abgeschnitten wird (alte Variante lag auf ausgeblendeten Spalten).
+rl.merge_cells("AB2:AD2")
+_lab = rl["AB2"]; _lab.value = "Bearbeiter:"; _lab.font = f(italic=True, color=GREY, size=9)
+_lab.alignment = Alignment(horizontal="right", vertical="center")
+rl.merge_cells("AE2:AK2")
+_bv = rl["AE2"]; _bv.value = ""; _bv.font = f(bold=True, color=BLUE, size=9)
+_bv.fill = INPUT_FILL; _bv.border = BORDER
+_bv.alignment = Alignment(horizontal="left", vertical="center")
 setup_print(rl, f"A1:{LASTCOL}{R1}", titles="1:6", orientation="landscape", paper=9)
 rl.page_margins.left = rl.page_margins.right = 0.2   # schmalere Ränder → mehr Platz auf A4
 rl.page_margins.top = rl.page_margins.bottom = 0.3
@@ -660,11 +677,18 @@ vpts = [
     [100, 40, 30, 20, 0.10, 54],
     [150, 40, 30, 20, 0.10, 49],
     [200, 40, 30, 20, 0.10, 44],
-    [100, 45, 35, 20, 0.10, 73],
-    [100, 50, 40, 20, 0.10, 92],
+    [300, 40, 30, 20, 0.10, 36],
     [100, 40, 30, 20, 0.05, 69],
+    [150, 40, 30, 20, 0.05, 61],
     [100, 40, 30, 20, 0.00, 93],
+    [100, 40, 30, 20, 0.15, 45],
     [100, 40, 30, 24, 0.10, 38],
+    [100, 40, 30, 24, 0.00, 66],
+    [100, 45, 35, 20, 0.10, 73],
+    [200, 45, 35, 20, 0.10, 60],
+    [150, 45, 35, 20, 0.00, 110],
+    [100, 50, 40, 20, 0.10, 92],
+    [150, 50, 40, 20, 0.10, 84],
 ]
 V1 = V0 + len(vpts) - 1
 for i, pt in enumerate(vpts):
@@ -690,9 +714,9 @@ nr = V1 + 2
 for i, (txt, kind) in enumerate([
     ("Hinweise", "h"),
     ("• Jede Zeile vergleicht einen eigenen Auslegungspunkt (Spalten A–E) mit dem Hersteller-/Referenzwert (Spalte F).", ""),
-    ("• Hersteller-q (Spalte F) aus dem Datenblatt eintragen. Vorbelegt sind Werte nach DIN EN 1264", ""),
-    ("   (Nasssystem/Tacker, Standardestrich; Quelle: fussbodenheizung24.de).", ""),
-    ("• Alle nach EN 1264 zertifizierten Systeme (Rehau, Uponor, Buderus, Kermi …) liegen nah an diesen Werten.", ""),
+    ("• Hersteller-q (Spalte F) aus dem Datenblatt eintragen. Vorbelegt sind 15 Referenzpunkte nach DIN EN 1264", ""),
+    ("   (Nasssystem/Tacker, Standardestrich; Leistungstabelle fussbodenheizung24.de, Stand 07/2017).", ""),
+    ("• Alle nach EN 1264 zertifizierten Systeme (Rehau, Uponor, Purmo, Buderus, Kermi …) liegen nah an diesen Werten.", ""),
     ("• Systemfaktor f oben so wählen, dass die Abweichungen (Spalte I) klein/grün sind. f ≈ 0,85 passt zu EN 1264.", ""),
     ("• f bündelt die im überschlägigen Modell vereinfachten Effekte (Rohrwand-, Estrichspreizungs-Widerstand).", "i")]):
     c = vf.cell(row=nr + i, column=1, value=txt)
@@ -776,10 +800,11 @@ setup_print(m, f"A1:F{end_b}")
 # =====================================================================
 kt = wb.create_sheet("Konstanten")
 kt.sheet_view.showGridLines = False
-for col, w in (("A", 22), ("B", 12), ("C", 9), ("D", 17), ("E", 9), ("F", 12), ("G", 25), ("H", 12), ("I", 2)):
+for col, w in (("A", 22), ("B", 12), ("C", 9), ("D", 17), ("E", 9), ("F", 12),
+               ("G", 3), ("H", 25), ("I", 12), ("J", 2)):
     kt.column_dimensions[col].width = w
 kt.cell(row=3, column=1, value="Nachschlage-Tabellen (editierbar). Leerzeilen = Platz für weitere Einträge.").font = f(italic=True, color=GREY, size=9)
-# Oben nebeneinander: Verlegeabstand-Faktor (links) | Zonen (Mitte) | R-Werte (rechts, höher)
+# Oben nebeneinander: Verlegeabstand-Faktor (links) | Zonen (Mitte) | Leerspalte | R-Werte (rechts, höher)
 two_col_table(kt, 4, 1, "Verlegeabstand-Faktor", "Verlegeabstand [mm]", "Faktor η [-]",
     [(50, 1.05), (75, 1.02), (100, 1.00), (125, 0.97), (150, 0.93), (200, 0.85), (250, 0.78), (300, 0.72)], '0.000')
 # Zonen 3-spaltig (Zone | Kürzel | θF,max) – Kürzel wird in der Auslegung verwendet
@@ -787,19 +812,22 @@ kt.cell(row=4, column=4, value="Zonen / max. Oberflächentemp.").font = f(bold=T
 kt.merge_cells("D4:F4")
 mini_header(kt, 5, 4, "Zone"); mini_header(kt, 5, 5, "Kürzel"); mini_header(kt, 5, 6, "θF,max [°C]")
 zdata = [("Aufenthaltszone", "AZ", 29), ("Randzone", "RZ", 35), ("Badezimmer", "BAD", 33)]
-for i in range(5):   # 3 + 2 leer
+for i in range(8):   # 3 + 5 leer (gleiche Höhe wie Verlegeabstand-Tabelle)
     r = 6 + i
     for col in (4, 5, 6):
         cell = kt.cell(row=r, column=col); cell.font = f(color=BLUE); cell.fill = INPUT_FILL; cell.border = BORDER
         cell.alignment = Alignment(horizontal="left" if col <= 5 else "center")
         if col == 6: cell.number_format = '0" °C"'
         if i < len(zdata): cell.value = zdata[i][col - 4]
-# R-Werte Bodenbeläge (rechts, mehr Auswahl)
-two_col_table(kt, 4, 7, "R-Werte Bodenbeläge", "Bodenbelag", "R [m²·K/W]",
-    [("Keramik / Feinsteinzeug", 0.010), ("Naturstein / Marmor", 0.015), ("PVC / Vinyl (verklebt)", 0.020),
-     ("Designboden (Klick)", 0.040), ("Linoleum 2,5 mm", 0.050), ("Laminat + Trittschall", 0.060),
-     ("Parkett / Fertigparkett", 0.075), ("Kork", 0.100), ("Holzdielen", 0.110),
-     ("Teppich (dünn)", 0.100), ("Teppich (dick)", 0.170)], '0.000', n_empty=3)
+# Spalte G bleibt als Leerspalte frei (Trennung Zonen ↔ R-Werte)
+# R-Werte Bodenbeläge (rechts ab Spalte H, mehr Auswahl)
+two_col_table(kt, 4, 8, "R-Werte Bodenbeläge", "Bodenbelag", "R [m²·K/W]",
+    [("ohne Belag (roh)", 0.000), ("Keramik / Feinsteinzeug", 0.010), ("Fliesen 8 mm", 0.012),
+     ("Naturstein / Marmor", 0.015), ("PVC / Vinyl (verklebt)", 0.020), ("Designboden (Klick)", 0.040),
+     ("Linoleum 2,5 mm", 0.050), ("Klick-Vinyl (schwimmend)", 0.055), ("Laminat + Trittschall", 0.060),
+     ("Parkett / Fertigparkett", 0.075), ("Mehrschichtparkett 14 mm", 0.090), ("Kork", 0.100),
+     ("Teppich (dünn)", 0.100), ("Holzdielen", 0.110), ("Massivholzdielen 20 mm", 0.130),
+     ("Teppich (mittel)", 0.140), ("Teppich (dick)", 0.170)], '0.000', n_empty=3)
 # Darunter volle Breite: Rohrbibliothek
 kt.cell(row=16, column=1, value="Rohrbibliothek (di = da − 2·s)").font = f(bold=True, color=NAVY)
 for j, h in enumerate(["Rohrsystem", "da [mm]", "s [mm]", "di [mm]", "k [mm]"], start=1):
@@ -819,8 +847,8 @@ for i in range(8):
             if col in (2, 3): cell.number_format = '0.0'
             if col == 5: cell.number_format = '0.000'
             if i < len(pipes): cell.value = pipes[i][colmap[col]]
-disp_header(kt, "Konstanten / Bibliotheken", 8, project=False)
-setup_print(kt, "A1:H26")
+disp_header(kt, "Konstanten / Bibliotheken", 9, project=False)
+setup_print(kt, "A1:I27")
 
 # =====================================================================
 #  Blatt 8: CHANGELOG
@@ -1034,6 +1062,9 @@ def protect_formulas(ws):
             is_formula = isinstance(v, ArrayFormula) or (isinstance(v, str) and v.startswith("="))
             cell.protection = Protection(locked=is_formula)
     ws.protection.sheet = True
+    # Zeilenhöhe/Spaltenbreite trotz Blattschutz änderbar lassen (z. B. HKV-Raumliste umbrechen)
+    ws.protection.formatRows = False
+    ws.protection.formatColumns = False
 for ws in wb.worksheets:
     protect_formulas(ws)
 
