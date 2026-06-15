@@ -168,6 +168,10 @@ CHANGELOG = [
         "Verifikation: 15 statt 8 Referenzpunkte nach DIN EN 1264 (mehr Prüfstellen: Verlegeabstand 100–300 mm, VL 40/45/50 °C, R 0,00–0,15 m²K/W).",
         "Konstanten: R-Werte-Tabelle auf 17 Beläge erweitert (inkl. 'ohne Belag'); Zonen-Tabelle auf gleiche Höhe wie Verlegeabstand-Tabelle; Leerspalte zwischen Zonen und R-Werten.",
     ]),
+    ("0.29", "2026-06-15", [
+        "Auslegung: in der Spalte wird wieder direkt der R-Wert ausgewählt (Spalte bleibt schmal). Die Zuordnung R-Wert ↔ Bodenbelag erscheint als Hinweis (Tooltip), sobald man die Zelle anklickt – ohne die Spalte zu verbreitern.",
+        "Auslegung: Bearbeiter-Feld wieder aus den Grundeinstellungen referenziert (nur dort einmal eingeben) – daher ungefärbt; auf sichtbaren Spalten, damit der Eintrag nicht abgeschnitten wird.",
+    ]),
 ]
 VERSION = CHANGELOG[-1][0]
 AUTHOR = "dh"
@@ -293,10 +297,23 @@ wb = Workbook()
 # ---- Referenzen auf KONSTANTEN ----
 K = "'Konstanten'!"
 VA_RANGE = f"{K}$A$6:$B$13"
-RW_NAME_LIST = f"{K}$H$6:$H$25"   # Dropdown: Bodenbelag-Bezeichnung (Spalte H)
-RW_LOOKUP = f"{K}$H$6:$I$25"      # VLOOKUP Bodenbelag -> R-Wert (Spalten H/I)
+RW_VAL_LIST = f"{K}$I$6:$I$25"    # Dropdown: R-Wert (Spalte I); Belag-Name steht daneben (Spalte H)
 ZONE_RANGE = f"{K}$E$6:$F$13"; ZONE_LIST = f"{K}$E$6:$E$13"   # Zonen links (D/E/F): Kürzel -> θF,max
 PIPE_RANGE = f"{K}$A$18:$E$25"; PIPE_LIST = f"{K}$A$18:$A$25"
+
+# Bodenbeläge (Name, R-Wert) – Quelle für die Konstanten-Tabelle UND den Dropdown-Hinweis
+BELAEGE = [
+    ("ohne Belag (roh)", 0.000), ("Keramik / Feinsteinzeug", 0.010), ("Fliesen 8 mm", 0.012),
+    ("Naturstein / Marmor", 0.015), ("PVC / Vinyl (verklebt)", 0.020), ("Designboden (Klick)", 0.040),
+    ("Linoleum 2,5 mm", 0.050), ("Klick-Vinyl (schwimmend)", 0.055), ("Laminat + Trittschall", 0.060),
+    ("Parkett / Fertigparkett", 0.075), ("Mehrschichtparkett 14 mm", 0.090), ("Kork", 0.100),
+    ("Teppich (dünn)", 0.100), ("Holzdielen", 0.110), ("Massivholzdielen 20 mm", 0.130),
+    ("Teppich (mittel)", 0.140), ("Teppich (dick)", 0.170),
+]
+# Kompakter Hinweis-Text (im Dropdown sichtbar) – ordnet R-Wert einem Belag zu, ohne die Spalte zu verbreitern
+RW_HINT = ("R-Wert je Bodenbelag: 0,000 ohne Belag · 0,010 Keramik · 0,015 Naturstein · "
+           "0,020 PVC/Vinyl · 0,040 Designboden · 0,050 Linoleum · 0,060 Laminat · 0,075 Parkett · "
+           "0,100 Kork/Teppich · 0,110 Holzdielen · 0,170 Teppich dick. Vollständige Liste: Blatt Konstanten.")
 
 # =====================================================================
 #  Blatt 1: GRUNDEINSTELLUNGEN  (Bezeichnungen ausgeschrieben)
@@ -411,7 +428,7 @@ columns = [
     ("Heizlast", "Q", "[W]", 10, '#,##0" W"', BLUE),                   # F
     ("spez. Heizlast", "q_HL", "[W/m²]", 11, '0.0" W/m²"', BLACK),     # G  (=Q/Raumfläche)
     ("aktivier-\nbare Fläche", "A_F", "[m²]", 11, '0.0" m²"', BLUE),   # H
-    ("Boden-\nbelag", "", "", 16, "text", BLUE),                       # I (Dropdown Belag-Name → R-Wert via Konstanten)
+    ("R-Wert\nBodenbelag", "R_λ,B", "[m²·K/W]", 12, '0.000', BLUE),    # I (Dropdown R-Wert; Belag-Hinweis im Tooltip)
     ("Verlege–abstand", "VA", "[mm]", 11, '0" mm"', BLUE),             # J
     ("Anz.\nHK", "n", "[-]", 9, '0" HK"', BLUE),                       # K
     ("Zuleitungs-\nlänge", "L_zu", "[m]", 11, '0.0" m"', BLUE),        # L
@@ -464,7 +481,7 @@ def F(r):
     return {
         7:  f'=IF($B{r}="","",IFERROR($F{r}/$D{r},""))',
         14: f'=IF($B{r}="","",IFERROR(({gV}-{gR})/LN(({gV}-$E{r})/({gR}-$E{r})),""))',
-        15: f'=IF($B{r}="","",IFERROR(1/(1/{galp}+IFERROR(VLOOKUP($I{r},{RW_LOOKUP},2,FALSE),0)+{gsu}/{glam}),""))',
+        15: f'=IF($B{r}="","",IFERROR(1/(1/{galp}+$I{r}+{gsu}/{glam}),""))',
         16: f'=IF($B{r}="","",IFERROR(VLOOKUP($J{r},{VA_RANGE},2,TRUE),""))',
         17: f'=IF(OR($B{r}="",$N{r}="",$O{r}="",$P{r}=""),"",{gfkorr}*$O{r}*$P{r}*$N{r})',
         18: f'=IF(OR($B{r}="",$Q{r}=""),"",$E{r}+$Q{r}/{galp})',
@@ -490,15 +507,15 @@ def F(r):
     }
 
 examples = [   # Heizlast so gewählt, dass spez. Heizlast (Q/Raumfläche) <= 50 W/m², bunte Mischung
-    ["HKV EG", "001", "Foyer/Empfang", 40, 20, 1800, 36, "ohne Belag (roh)",        100, 3, 6,  "RZ"],   # 45 W/m²
-    ["HKV EG", "002", "Großraumbüro",  60, 20, 2400, 55, "Teppich (dünn)",          150, 4, 8,  "AZ"],   # 40 W/m²
-    ["HKV EG", "003", "Büro 1",        18, 20,  630, 16, "Teppich (dünn)",          150, 1, 5,  "AZ"],   # 35 W/m²
-    ["HKV EG", "004", "Besprechung",   30, 20, 1500, 28, "Parkett / Fertigparkett", 100, 2, 7,  "AZ"],   # 50 W/m²
-    ["HKV EG", "005", "Flur",          25, 20,  750, 22, "Linoleum 2,5 mm",         200, 1, 3,  "AZ"],   # 30 W/m²
-    ["HKV OG", "101", "WC / Sanitär",  12, 24,  600,  9, "Keramik / Feinsteinzeug", 100, 1, 10, "BAD"],  # 50 W/m²
-    ["HKV OG", "102", "Teeküche",      10, 20,  450,  8, "Keramik / Feinsteinzeug", 100, 1, 9,  "AZ"],   # 45 W/m²
-    ["HKV OG", "103", "Archiv",        20, 18,  500, 18, "Linoleum 2,5 mm",         200, 1, 12, "AZ"],   # 25 W/m²
-    ["HKV OG", "104", "Technikraum",   15, 15,  300, 12, "ohne Belag (roh)",        250, 1, 14, "AZ"],   # 20 W/m²
+    ["HKV EG", "001", "Foyer/Empfang", 40, 20, 1800, 36, 0.00,  100, 3, 6,  "RZ"],   # 45 W/m²
+    ["HKV EG", "002", "Großraumbüro",  60, 20, 2400, 55, 0.10,  150, 4, 8,  "AZ"],   # 40 W/m²
+    ["HKV EG", "003", "Büro 1",        18, 20,  630, 16, 0.10,  150, 1, 5,  "AZ"],   # 35 W/m²
+    ["HKV EG", "004", "Besprechung",   30, 20, 1500, 28, 0.075, 100, 2, 7,  "AZ"],   # 50 W/m²
+    ["HKV EG", "005", "Flur",          25, 20,  750, 22, 0.05,  200, 1, 3,  "AZ"],   # 30 W/m²
+    ["HKV OG", "101", "WC / Sanitär",  12, 24,  600,  9, 0.01,  100, 1, 10, "BAD"],  # 50 W/m²
+    ["HKV OG", "102", "Teeküche",      10, 20,  450,  8, 0.01,  100, 1, 9,  "AZ"],   # 45 W/m²
+    ["HKV OG", "103", "Archiv",        20, 18,  500, 18, 0.05,  200, 1, 12, "AZ"],   # 25 W/m²
+    ["HKV OG", "104", "Technikraum",   15, 15,  300, 12, 0.00,  250, 1, 14, "AZ"],   # 20 W/m²
 ]
 for idx, r in enumerate(range(R0, R1 + 1)):
     fr = F(r)
@@ -508,7 +525,7 @@ for idx, r in enumerate(range(R0, R1 + 1)):
         c.font = f(color=BLUE); c.fill = INPUT_FILL; c.border = BORDER
         fmt = columns[j - 1][4]
         if fmt != "text": c.number_format = fmt
-        c.alignment = Alignment(horizontal="left" if j in (1, 2, 3, 9) else "center")
+        c.alignment = Alignment(horizontal="left" if j in (1, 2, 3) else "center")
     for j in CALC_COLS:
         c = rl.cell(row=r, column=j, value=fr[j])
         c.font = f(color=BLACK); c.border = BORDER
@@ -520,7 +537,8 @@ for idx, r in enumerate(range(R0, R1 + 1)):
 rl.freeze_panes = "C7"
 dv_zone = DataValidation(type="list", formula1=f"={ZONE_LIST}", allow_blank=True, showErrorMessage=False)
 rl.add_data_validation(dv_zone); dv_zone.add(f"M{R0}:M{R1}")
-dv_rw = DataValidation(type="list", formula1=f"={RW_NAME_LIST}", allow_blank=True, showErrorMessage=False)
+dv_rw = DataValidation(type="list", formula1=f"={RW_VAL_LIST}", allow_blank=True, showErrorMessage=False,
+                       showInputMessage=True, promptTitle="Bodenbelag → R-Wert", prompt=RW_HINT)
 rl.add_data_validation(dv_rw); dv_rw.add(f"I{R0}:I{R1}")
 
 def cf_pair(col, ok_formula, bad_formula):
@@ -541,22 +559,15 @@ rl.conditional_formatting.add(f"H{R0}:H{R1}", FormulaRule(
 for col in ["N", "O", "P", "S", "U", "W", "X", "Y", "Z", "AA", "AC", "AF", "AG", "AH", "AI", "AJ"]:
     rl.column_dimensions[col].hidden = True
 # sichtbare Spalten schmaler, damit das Blatt auf A4-Querformat passt
-narrow = {"A": 13, "B": 11, "C": 16, "D": 8, "E": 11, "F": 9, "G": 10, "H": 9, "I": 18,
+narrow = {"A": 13, "B": 11, "C": 16, "D": 8, "E": 11, "F": 9, "G": 10, "H": 9, "I": 11,
           "J": 9, "K": 8, "L": 11, "M": 6, "Q": 11, "R": 11, "T": 9, "V": 8,
           "AB": 9, "AD": 10, "AE": 10, "AK": 10}
 for col, w in narrow.items():
     rl.column_dimensions[col].width = w
 rl.row_dimensions[NAME_ROW].height = 46   # mehr Höhe, da schmale Spalten stärker umbrechen
-disp_header(rl, "Auslegung – Fußbodenheizung", NCOL)
-# Bearbeiter oben rechts: Label + eigenes (editierbares) Eingabefeld – zwei Zellen,
-# damit der Eintrag nicht abgeschnitten wird (alte Variante lag auf ausgeblendeten Spalten).
-rl.merge_cells("AB2:AD2")
-_lab = rl["AB2"]; _lab.value = "Bearbeiter:"; _lab.font = f(italic=True, color=GREY, size=9)
-_lab.alignment = Alignment(horizontal="right", vertical="center")
-rl.merge_cells("AE2:AK2")
-_bv = rl["AE2"]; _bv.value = ""; _bv.font = f(bold=True, color=BLUE, size=9)
-_bv.fill = INPUT_FILL; _bv.border = BORDER
-_bv.alignment = Alignment(horizontal="left", vertical="center")
+# Bearbeiter oben rechts: aus den Grundeinstellungen referenziert (nicht händisch, daher ungefärbt).
+# Breite Merge über sichtbare Spalten (AB..AK), damit der Eintrag nicht abgeschnitten wird.
+disp_header(rl, "Auslegung – Fußbodenheizung", NCOL, "AB2", "AB2:AK2")
 setup_print(rl, f"A1:{LASTCOL}{R1}", titles="1:6", orientation="landscape", paper=9)
 rl.page_margins.left = rl.page_margins.right = 0.2   # schmalere Ränder → mehr Platz auf A4
 rl.page_margins.top = rl.page_margins.bottom = 0.3
@@ -820,14 +831,8 @@ for i in range(8):   # 3 + 5 leer (gleiche Höhe wie Verlegeabstand-Tabelle)
         if col == 6: cell.number_format = '0" °C"'
         if i < len(zdata): cell.value = zdata[i][col - 4]
 # Spalte G bleibt als Leerspalte frei (Trennung Zonen ↔ R-Werte)
-# R-Werte Bodenbeläge (rechts ab Spalte H, mehr Auswahl)
-two_col_table(kt, 4, 8, "R-Werte Bodenbeläge", "Bodenbelag", "R [m²·K/W]",
-    [("ohne Belag (roh)", 0.000), ("Keramik / Feinsteinzeug", 0.010), ("Fliesen 8 mm", 0.012),
-     ("Naturstein / Marmor", 0.015), ("PVC / Vinyl (verklebt)", 0.020), ("Designboden (Klick)", 0.040),
-     ("Linoleum 2,5 mm", 0.050), ("Klick-Vinyl (schwimmend)", 0.055), ("Laminat + Trittschall", 0.060),
-     ("Parkett / Fertigparkett", 0.075), ("Mehrschichtparkett 14 mm", 0.090), ("Kork", 0.100),
-     ("Teppich (dünn)", 0.100), ("Holzdielen", 0.110), ("Massivholzdielen 20 mm", 0.130),
-     ("Teppich (mittel)", 0.140), ("Teppich (dick)", 0.170)], '0.000', n_empty=3)
+# R-Werte Bodenbeläge (rechts ab Spalte H, mehr Auswahl). R-Wert in Spalte I = Dropdown-Quelle der Auslegung.
+two_col_table(kt, 4, 8, "R-Werte Bodenbeläge", "Bodenbelag", "R [m²·K/W]", BELAEGE, '0.000', n_empty=3)
 # Darunter volle Breite: Rohrbibliothek
 kt.cell(row=16, column=1, value="Rohrbibliothek (di = da − 2·s)").font = f(bold=True, color=NAVY)
 for j, h in enumerate(["Rohrsystem", "da [mm]", "s [mm]", "di [mm]", "k [mm]"], start=1):
