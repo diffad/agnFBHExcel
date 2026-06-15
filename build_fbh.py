@@ -2,7 +2,8 @@
 """Aufbau der Excel-Arbeitsmappe zur ueberschlaegigen Auslegung von Fussbodenheizungen."""
 import os
 from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side, Protection
+from openpyxl.cell.cell import MergedCell
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.formatting.rule import FormulaRule
 from openpyxl.utils import get_column_letter
@@ -148,6 +149,13 @@ CHANGELOG = [
     ("0.25", "2026-06-14", [
         "Begriff 'Korrekturfaktor' in 'Systemfaktor (EN-1264-Kalibrierung)' umbenannt (Verifikation, Methodik, Deckblatt, Anleitung) – f ist die bewusste Kalibrierung des überschlägigen Modells an EN 1264, kein Fehlerfaktor.",
     ]),
+    ("0.26", "2026-06-14", [
+        "HKV-Liste: neue Spalte 'angebundene Räume (Raum-Nr.)' – listet je Verteiler automatisch die zugehörigen Raumnummern (TEXTJOIN-Array, Excel & LibreOffice).",
+        "Auslegung: Spalten 'Leistung FBH' und 'Über-/Unterdeckung' eingeblendet; Über-/Unterdeckung mit Vorzeichen (+/–) und Ampel (grün = Überdeckung, rot = Unterdeckung).",
+        "Grundeinstellungen: Eingabefelder Projekt-Nr./Projektname breiter; Spalte J (Rohrsystem-Werte) breiter.",
+        "Verifikation: kein fixer Vergleichspunkt mehr – jede Zeile ist ein eigener Auslegungspunkt (VL/RL, θi, R, Verlegeabstand) mit eigener Abweichung; Diagramm entfernt.",
+        "Blattschutz: Zellen mit Formeln sind gesperrt (vor versehentlichem Überschreiben geschützt), Eingabezellen bleiben editierbar; Schutz ohne Passwort.",
+    ]),
 ]
 VERSION = CHANGELOG[-1][0]
 AUTHOR = "dh"
@@ -284,7 +292,7 @@ g = wb.active
 g.title = "Grundeinstellungen"
 g.sheet_view.showGridLines = False
 for col, w in (("A", 23), ("B", 15), ("C", 11), ("D", 8), ("E", 17), ("F", 7), ("G", 2),
-               ("H", 23), ("I", 15), ("J", 11), ("K", 8), ("L", 17), ("M", 7)):
+               ("H", 23), ("I", 15), ("J", 14), ("K", 8), ("L", 17), ("M", 7)):
     g.column_dimensions[col].width = w
 g.row_dimensions[1].height = 34
 g["A1"].value = "Globale Grundeinstellungen – Fußbodenheizung"
@@ -294,7 +302,7 @@ for row, lab in ((2, "Projekt-Nr."), (3, "Projektname")):
     g.cell(row=row, column=1, value=lab).font = f(bold=True)
     g.merge_cells(start_row=row, start_column=1, end_row=row, end_column=2)
     v = g.cell(row=row, column=3, value=""); v.font = f(bold=True, color=BLUE); v.fill = INPUT_FILL; v.border = BORDER; v.alignment = LEFT
-    g.merge_cells(start_row=row, start_column=3, end_row=row, end_column=4)
+    g.merge_cells(start_row=row, start_column=3, end_row=row, end_column=6)
 g.cell(row=2, column=12, value="Bearbeiter:").font = f(italic=True, color=GREY, size=9)
 g["L2"].alignment = Alignment(horizontal="right")
 bf = g.cell(row=2, column=13, value=""); bf.font = f(bold=True, color=BLUE); bf.fill = INPUT_FILL; bf.border = BORDER; bf.alignment = CEN
@@ -373,7 +381,7 @@ galp, gsu, glam = f"{G}$J$6", f"{G}$J$7", f"{G}$J$8"
 gqdown = f"{G}$J$13"
 gdim, gAi = f"{G}$J$21", f"{G}$J$22"
 gPNr, gPName, gBearb = f"{G}$C$2", f"{G}$C$3", f"{G}$M$2"
-gfkorr = "'Verifikation'!$C$5"
+gfkorr = "'Verifikation'!$D$5"
 
 # =====================================================================
 #  Blatt 2: AUSLEGUNG
@@ -401,8 +409,8 @@ columns = [
     ("spez. Heiz-\nleistung", "q", "[W/m²]", 12, '0.0" W/m²"', BLACK), # Q
     ("Ober-\nflächen-\ntemperatur", "θF", "[°C]", 11, '0.0" °C"', BLACK),  # R
     ("max. Oberflächentemp.", "θF,max", "[°C]", 11, '0.0" °C"', BLACK),# S
-    ("Leistung FBH nach oben", "Q_o", "[W]", 12, '#,##0" W"', BLACK),  # T
-    ("Deckung absolut", "ΔQ", "[W]", 12, '#,##0" W"', BLACK),          # U
+    ("Leistung\nFBH", "Q_o", "[W]", 12, '#,##0" W"', BLACK),           # T
+    ("Über-/Unter-\ndeckung", "ΔQ", "[W]", 12, '"+"#,##0" W";"-"#,##0" W";0" W"', BLACK),  # U
     ("Deckung", "", "[%]", 10, '0.0%', BLACK),                         # V
     ("Verlust nach unten", "Q_u", "[W]", 11, '#,##0" W"', BLACK),      # W
     ("maßgebl. Leistung", "Q_m", "[W]", 12, '#,##0" W"', BLACK),       # X  (=min(T;Q)+W)
@@ -507,6 +515,7 @@ def cf_pair(col, ok_formula, bad_formula):
     rl.conditional_formatting.add(rng, FormulaRule(formula=[bad_formula], fill=RED_FILL))
     rl.conditional_formatting.add(rng, FormulaRule(formula=[ok_formula], fill=GREEN_FILL))
 cf_pair("R", f'AND($R{R0}<>"",$R{R0}<=$S{R0})', f'AND($R{R0}<>"",$R{R0}>$S{R0})')
+cf_pair("U", f'AND($U{R0}<>"",$U{R0}>=0)', f'AND($U{R0}<>"",$U{R0}<0)')
 cf_pair("V", f'AND($V{R0}<>"",$V{R0}>=1)', f'AND($V{R0}<>"",$V{R0}<1)')
 cf_pair("AB", f'AND($AB{R0}<>"",$AB{R0}<={gMax})', f'AND($AB{R0}<>"",$AB{R0}>{gMax})')
 cf_pair("AD", f'AND($AD{R0}<>"",$AD{R0}<={gVdot})', f'AND($AD{R0}<>"",$AD{R0}>{gVdot})')
@@ -516,12 +525,12 @@ cf_pair("AE", f'AND($AE{R0}<>"",$AE{R0}>={gvmin},$AE{R0}<={gvmax})',
 rl.conditional_formatting.add(f"H{R0}:H{R1}", FormulaRule(
     formula=[f'AND($H{R0}<>"",$D{R0}<>"",$H{R0}>$D{R0})'], fill=RED_FILL))
 # schlanker Standard: Zwischen-/Sekundärspalten ausblenden (jederzeit einblendbar)
-for col in ["N", "O", "P", "S", "T", "U", "W", "X", "Y", "Z", "AA", "AC", "AF", "AG", "AH", "AI", "AJ"]:
+for col in ["N", "O", "P", "S", "W", "X", "Y", "Z", "AA", "AC", "AF", "AG", "AH", "AI", "AJ"]:
     rl.column_dimensions[col].hidden = True
 # sichtbare Spalten schmaler, damit das Blatt auf A4-Querformat passt
 narrow = {"A": 13, "B": 8, "C": 16, "D": 8, "E": 11, "F": 9, "G": 10, "H": 9, "I": 11,
-          "J": 9, "K": 7, "L": 11, "M": 6, "Q": 11, "R": 11, "V": 8, "AB": 9,
-          "AD": 10, "AE": 10, "AK": 10}
+          "J": 9, "K": 7, "L": 11, "M": 6, "Q": 11, "R": 11, "T": 9, "U": 13, "V": 8,
+          "AB": 9, "AD": 10, "AE": 10, "AK": 10}
 for col, w in narrow.items():
     rl.column_dimensions[col].width = w
 rl.row_dimensions[NAME_ROW].height = 46   # mehr Höhe, da schmale Spalten stärker umbrechen
@@ -575,10 +584,11 @@ setup_print(ov, "A1:D25")
 # =====================================================================
 hv = wb.create_sheet("HKV")
 hv.sheet_view.showGridLines = False
-for col, w in (("A", 22), ("B", 12), ("C", 12), ("D", 20), ("E", 18), ("F", 18), ("G", 20)):
+for col, w in (("A", 22), ("B", 12), ("C", 12), ("D", 20), ("E", 18), ("F", 18), ("G", 20), ("H", 34)):
     hv.column_dimensions[col].width = w
 for j, h in enumerate(["Heizkreisverteiler (HKV)", "Anzahl Kreise", "Spreizung [K]", "maßgebl. Leistung [W]",
-                       "Massenstrom [kg/h]", "Volumenstrom [l/h]", "max. Druckverlust [Pa]"], start=1):
+                       "Massenstrom [kg/h]", "Volumenstrom [l/h]", "max. Druckverlust [Pa]",
+                       "angebundene Räume (Raum-Nr.)"], start=1):
     c = hv.cell(row=4, column=j, value=h)
     c.font = f(bold=True, color=WHITE); c.fill = HDR_FILL
     c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True); c.border = BORDER
@@ -598,94 +608,92 @@ for i in range(N_HKV):
     p.value = ArrayFormula(f"G{r}", f'=IF($A{r}="","",MAX(IF({Aaus}=$A{r},{AUS}$AK${R0}:$AK${R1})))')
     for cc, fmt in ((b, '0'), (sp, '0.0" K"'), (c, '#,##0" W"'), (d, '#,##0" kg/h"'), (e, '#,##0" l/h"'), (p, '#,##0" Pa"')):
         cc.font = f(); cc.alignment = CEN; cc.number_format = fmt; cc.border = BORDER
+    rm = hv.cell(row=r, column=8)
+    rm.value = ArrayFormula(f"H{r}", f'=IF($A{r}="","",_xlfn.TEXTJOIN(", ",TRUE,IF({Aaus}=$A{r},{AUS}$B${R0}:$B${R1},"")))')
+    rm.font = f(); rm.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True); rm.border = BORDER
 hv.cell(row=5 + N_HKV + 1, column=1,
         value="Baut sich automatisch aus der Auslegung auf (Array-Formeln, Excel & LibreOffice).").font = f(italic=True, color=GREY, size=9)
-disp_header(hv, "Heizkreisverteiler – Übersicht je HKV", 7, "F2", "F2:G2")
-setup_print(hv, f"A1:G{5 + N_HKV + 1}")
+disp_header(hv, "Heizkreisverteiler – Übersicht je HKV", 8, "F2", "F2:G2")
+setup_print(hv, f"A1:H{5 + N_HKV + 1}")
 
 # =====================================================================
 #  Blatt 5: VERIFIKATION
 # =====================================================================
 vf = wb.create_sheet("Verifikation")
 vf.sheet_view.showGridLines = False
-for col, w in (("A", 20), ("B", 13), ("C", 14), ("D", 14), ("E", 11), ("F", 10), ("G", 11), ("H", 8), ("I", 2)):
+for col, w in (("A", 13), ("B", 7), ("C", 7), ("D", 8), ("E", 11), ("F", 13),
+               ("G", 13), ("H", 12), ("I", 10), ("J", 9), ("K", 10), ("L", 8)):
     vf.column_dimensions[col].width = w
+# Systemfaktor f – eine globale Kalibrierung des Modells an EN 1264
 vf.cell(row=5, column=1, value="Systemfaktor (EN 1264)  f =").font = f(bold=True, color=NAVY, size=11)
-vf.merge_cells("A5:B5"); vf["A5"].fill = ACCENT_FILL; vf["B5"].fill = ACCENT_FILL
+vf.merge_cells("A5:C5")
+for cc in ("A5", "B5", "C5"): vf[cc].fill = ACCENT_FILL
 vf["A5"].alignment = Alignment(horizontal="right", vertical="center")
-fk = vf.cell(row=5, column=3, value=0.85); fk.font = f(bold=True, color=BLUE, size=11); fk.fill = INPUT_FILL
+fk = vf.cell(row=5, column=4, value=0.85); fk.font = f(bold=True, color=BLUE, size=11); fk.fill = INPUT_FILL
 fk.border = BORDER; fk.alignment = Alignment(horizontal="center", vertical="center"); fk.number_format = '0.000'
-vf.cell(row=5, column=4, value="← an Herstellerdaten anpassen").font = f(italic=True, color=GREY, size=9)
+vf.cell(row=5, column=5, value="← Best-Fit zu EN 1264 / Herstellerdaten").font = f(italic=True, color=GREY, size=9)
 vf.row_dimensions[5].height = 22
-c = vf.cell(row=7, column=1, value="Vergleichsbedingungen (fix)")
-c.font = f(bold=True, color=WHITE); c.fill = HDR_FILL
-for col in (2, 3): vf.cell(row=7, column=col).fill = HDR_FILL
-def vparam(row, label, value, unit, fmt):
-    vf.cell(row=row, column=1, value=label).font = f()
-    v = vf.cell(row=row, column=2, value=value); v.font = f(bold=True, color=BLUE); v.fill = INPUT_FILL; v.border = BORDER; v.alignment = CEN; v.number_format = fmt
-    vf.cell(row=row, column=3, value=unit).font = f(color=GREY)
-vparam(8, "Vorlauftemperatur  θV", 40, "°C", '0.0" °C"')
-vparam(9, "Rücklauftemperatur  θR", 30, "°C", '0.0" °C"')
-vparam(10, "Raumtemperatur  θi", 20, "°C", '0.0" °C"')
-vparam(11, "R-Wert Bodenbelag", 0.10, "m²K/W", '0.000')
-vf.cell(row=12, column=1, value="q berechnet = f · η(VA) · K_H · ΔθH").font = f(italic=True, color=GREY, size=9)
-vf.merge_cells("A12:D12")
-vhdr = ["Verlegeabstand [mm]", "q berechnet [W/m²]", "Referenz q\nEN 1264 [W/m²]", "Abweichung [W/m²]",
-        "Abweichung [%]", "ΔθH [K]", "K_H [W/m²K]", "η [-]"]
-VT = 14
+vf.cell(row=6, column=1, value="Jede Zeile ist ein eigener Auslegungspunkt (VL/RL, θi, R, Verlegeabstand). α und Estrich (s_ü, λ_E) global aus Grundeinstellungen.").font = f(italic=True, color=GREY, size=9)
+vf.merge_cells("A6:L6")
+vhdr = ["Verlege-\nabstand [mm]", "θV\n[°C]", "θR\n[°C]", "θi\n[°C]", "R-Wert\n[m²K/W]",
+        "Hersteller q\n[W/m²]", "q berechnet\n[W/m²]", "Abweichung\n[W/m²]", "Abweichung\n[%]",
+        "ΔθH\n[K]", "K_H\n[W/m²K]", "η\n[-]"]
+VT = 8
 for j, h in enumerate(vhdr, start=1):
+    inp = j <= 6
     c = vf.cell(row=VT, column=j, value=h)
-    c.fill = HDR_FILL if j != 3 else SUB_FILL
-    c.font = f(bold=True, color=(WHITE if j != 3 else NAVY))
+    c.fill = SUB_FILL if inp else HDR_FILL
+    c.font = f(bold=True, color=(NAVY if inp else WHITE))
     c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True); c.border = BORDER
-vf.row_dimensions[VT].height = 42
+vf.row_dimensions[VT].height = 40
 V0 = VT + 1
-va_values = [50, 75, 100, 125, 150, 200, 250, 300]
-# Referenzwerte nach DIN EN 1264 (Nasssystem/Tacker, Standardestrich), VL 40 / RL 30 °C,
-# θi 20 °C, Bodenbelag R_λ,B = 0,10 m²K/W. Quelle: Leistungstabelle fussbodenheizung24.de.
-hq_example = [60, 57, 54, 51, 49, 44, 40, 36]
-V1 = V0 + len(va_values) - 1
-for i, va in enumerate(va_values):
+# Beispiel-Auslegungspunkte: [VA, θV, θR, θi, R, Hersteller-q]; Hersteller-q nach DIN EN 1264
+# (Nasssystem/Tacker, Standardestrich; Quelle: Leistungstabelle fussbodenheizung24.de)
+vpts = [
+    [100, 40, 30, 20, 0.10, 54],
+    [150, 40, 30, 20, 0.10, 49],
+    [200, 40, 30, 20, 0.10, 44],
+    [100, 45, 35, 20, 0.10, 73],
+    [100, 50, 40, 20, 0.10, 92],
+    [100, 40, 30, 20, 0.05, 69],
+    [100, 40, 30, 20, 0.00, 93],
+    [100, 40, 30, 24, 0.10, 38],
+]
+V1 = V0 + len(vpts) - 1
+for i, pt in enumerate(vpts):
     r = V0 + i
-    a = vf.cell(row=r, column=1, value=va); a.font = f(color=BLUE); a.fill = INPUT_FILL; a.alignment = CEN; a.number_format = '0" mm"'; a.border = BORDER
-    cq = vf.cell(row=r, column=3, value=hq_example[i]); cq.font = f(color=BLUE); cq.fill = INPUT_FILL; cq.alignment = CEN; cq.number_format = '0.0" W/m²"'; cq.border = BORDER
+    inputs = {1: (pt[0], '0" mm"'), 2: (pt[1], '0.0" °C"'), 3: (pt[2], '0.0" °C"'),
+              4: (pt[3], '0.0" °C"'), 5: (pt[4], '0.000'), 6: (pt[5], '0.0" W/m²"')}
+    for col, (val, fmt) in inputs.items():
+        cc = vf.cell(row=r, column=col, value=val); cc.font = f(color=BLUE); cc.fill = INPUT_FILL
+        cc.alignment = CEN; cc.number_format = fmt; cc.border = BORDER
     forms = {
-        2: (f'=IF(OR($F{r}="",$G{r}="",$H{r}=""),"",$C$5*$G{r}*$H{r}*$F{r})', '0.0" W/m²"'),
-        4: (f'=IF(OR($B{r}="",$C{r}=""),"",$C{r}-$B{r})', '0.0" W/m²"'),
-        5: (f'=IF(OR($B{r}="",$C{r}=""),"",IFERROR(($C{r}-$B{r})/$B{r},""))', '0.0%'),
-        6: ('=IFERROR(($B$8-$B$9)/LN(($B$8-$B$10)/($B$9-$B$10)),"")', '0.00" K"'),
-        7: (f'=IFERROR(1/(1/{galp}+$B$11+{gsu}/{glam}),"")', '0.000'),
-        8: (f'=IFERROR(VLOOKUP($A{r},{VA_RANGE},2,TRUE),"")', '0.000'),
+        10: (f'=IF($A{r}="","",IFERROR(($B{r}-$C{r})/LN(($B{r}-$D{r})/($C{r}-$D{r})),""))', '0.00" K"'),
+        11: (f'=IF($A{r}="","",IFERROR(1/(1/{galp}+$E{r}+{gsu}/{glam}),""))', '0.000'),
+        12: (f'=IF($A{r}="","",IFERROR(VLOOKUP($A{r},{VA_RANGE},2,TRUE),""))', '0.000'),
+        7:  (f'=IF($A{r}="","",$D$5*$L{r}*$K{r}*$J{r})', '0.0" W/m²"'),
+        8:  (f'=IF(OR($A{r}="",$F{r}=""),"",$F{r}-$G{r})', '0.0" W/m²"'),
+        9:  (f'=IF(OR($A{r}="",$F{r}=""),"",IFERROR(($F{r}-$G{r})/$G{r},""))', '0.0%'),
     }
     for col, (formula, fmt) in forms.items():
         cc = vf.cell(row=r, column=col, value=formula); cc.font = f(); cc.alignment = CEN; cc.number_format = fmt; cc.border = BORDER
-vf.conditional_formatting.add(f"E{V0}:E{V1}", FormulaRule(formula=[f'AND($E{V0}<>"",ABS($E{V0})>0.1)'], fill=RED_FILL))
-vf.conditional_formatting.add(f"E{V0}:E{V1}", FormulaRule(formula=[f'AND($E{V0}<>"",ABS($E{V0})<=0.1)'], fill=GREEN_FILL))
-chart = LineChart(); chart.title = "Heizleistung über Verlegeabstand"
-chart.y_axis.title = "q [W/m²]"; chart.x_axis.title = "Verlegeabstand [mm]"
-chart.height = 11; chart.width = 15; chart.style = 2
-chart.add_data(Reference(vf, min_col=2, min_row=VT, max_row=V1), titles_from_data=True)
-chart.add_data(Reference(vf, min_col=3, min_row=VT, max_row=V1), titles_from_data=True)
-chart.set_categories(Reference(vf, min_col=1, min_row=V0, max_row=V1))
-vf.add_chart(chart, "J5")   # rechts neben den Tabellen
+vf.conditional_formatting.add(f"I{V0}:I{V1}", FormulaRule(formula=[f'AND($I{V0}<>"",ABS($I{V0})>0.1)'], fill=RED_FILL))
+vf.conditional_formatting.add(f"I{V0}:I{V1}", FormulaRule(formula=[f'AND($I{V0}<>"",ABS($I{V0})<=0.1)'], fill=GREEN_FILL))
 nr = V1 + 2
 for i, (txt, kind) in enumerate([
     ("Hinweise", "h"),
-    ("• Referenzwerte (Spalte C) nach DIN EN 1264 – Nasssystem/Tacker, Standardestrich,", ""),
-    ("   VL 40 / RL 30 °C, θi 20 °C, Bodenbelag R = 0,10 m²K/W. Quelle: fussbodenheizung24.de.", ""),
-    ("• Alle nach EN 1264 zertifizierten Systeme (Rehau, Uponor, Buderus, Kermi …) liegen", ""),
-    ("   nah an diesen Werten – herstellereigene Datenblattwerte einfach in Spalte C eintragen.", ""),
-    ("• Systemfaktor f oben so einstellen, dass berechnetes q und Referenz-q übereinstimmen", ""),
-    ("   (Abweichung grün). f ≈ 0,85 passt zu den EN-1264-Werten oben.", ""),
-    ("• f bündelt die im überschlägigen Modell vereinfachten Effekte (Rohrwand-, Estrich-", "i"),
-    ("   spreizungs-Widerstand). Gilt für die gesamte Auslegung – daher VOR der Raumauslegung", "i"),
-    ("   kalibrieren.", "i")]):
+    ("• Jede Zeile vergleicht einen eigenen Auslegungspunkt (Spalten A–E) mit dem Hersteller-/Referenzwert (Spalte F).", ""),
+    ("• Hersteller-q (Spalte F) aus dem Datenblatt eintragen. Vorbelegt sind Werte nach DIN EN 1264", ""),
+    ("   (Nasssystem/Tacker, Standardestrich; Quelle: fussbodenheizung24.de).", ""),
+    ("• Alle nach EN 1264 zertifizierten Systeme (Rehau, Uponor, Buderus, Kermi …) liegen nah an diesen Werten.", ""),
+    ("• Systemfaktor f oben so wählen, dass die Abweichungen (Spalte I) klein/grün sind. f ≈ 0,85 passt zu EN 1264.", ""),
+    ("• f bündelt die im überschlägigen Modell vereinfachten Effekte (Rohrwand-, Estrichspreizungs-Widerstand).", "i")]):
     c = vf.cell(row=nr + i, column=1, value=txt)
     if kind == "h": c.font = f(bold=True, color=NAVY, size=11)
     elif kind == "i": c.font = f(italic=True, color=GREY, size=9)
     else: c.font = f()
-disp_header(vf, "Verifikation – Abgleich mit Herstellerdaten", 16, project=True)
-setup_print(vf, f"A1:Q{max(nr + 10, 24)}")
+disp_header(vf, "Verifikation – Abgleich mit Herstellerdaten", 12, project=True)
+setup_print(vf, f"A1:L{max(nr + 8, 22)}")
 
 # =====================================================================
 #  Blatt 6: METHODIK
@@ -1003,6 +1011,21 @@ SHEET_ORDER = ["Deckblatt", "Grundeinstellungen", "Auslegung", "Kontrolle", "HKV
                "Verifikation", "Anleitung", "Methodik", "Konstanten", "Changelog"]
 wb._sheets.sort(key=lambda ws: SHEET_ORDER.index(ws.title))
 wb.active = 0
+
+# =====================================================================
+# Blattschutz: nur Formelzellen sperren (Eingabezellen bleiben editierbar).
+# Schutz ohne Passwort → kann bei Bedarf über 'Überprüfen ▸ Blattschutz aufheben' gelöst werden.
+def protect_formulas(ws):
+    for row in ws.iter_rows():
+        for cell in row:
+            if isinstance(cell, MergedCell):
+                continue
+            v = cell.value
+            is_formula = isinstance(v, ArrayFormula) or (isinstance(v, str) and v.startswith("="))
+            cell.protection = Protection(locked=is_formula)
+    ws.protection.sheet = True
+for ws in wb.worksheets:
+    protect_formulas(ws)
 
 # =====================================================================
 wb.properties.version = VERSION
