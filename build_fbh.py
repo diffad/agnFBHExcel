@@ -156,6 +156,11 @@ CHANGELOG = [
         "Verifikation: kein fixer Vergleichspunkt mehr – jede Zeile ist ein eigener Auslegungspunkt (VL/RL, θi, R, Verlegeabstand) mit eigener Abweichung; Diagramm entfernt.",
         "Blattschutz: Zellen mit Formeln sind gesperrt (vor versehentlichem Überschreiben geschützt), Eingabezellen bleiben editierbar; Schutz ohne Passwort.",
     ]),
+    ("0.27", "2026-06-14", [
+        "Auslegung: 'Über-/Unterdeckung' wieder ausgeblendet; stattdessen wird die 'Leistung FBH' eingefärbt (grün = Heizlast gedeckt, rot = nicht gedeckt). Raum-Nr. breiter; Anzahl Heizkreise mit Einheit 'HK' je Zelle; schmalere Seitenränder für besseren A4-Sitz.",
+        "HKV-Liste: Spalte 'angebundene Räume' deutlich breiter (lange/viele Raumnummern werden vollständig dargestellt).",
+        "Konstanten: R-Werte-Tabelle der Bodenbeläge erweitert (11 Beläge statt 5) und nach rechts gestellt; Zonen-Tabelle nach links – so kann die R-Werte-Tabelle höher werden.",
+    ]),
 ]
 VERSION = CHANGELOG[-1][0]
 AUTHOR = "dh"
@@ -281,8 +286,8 @@ wb = Workbook()
 # ---- Referenzen auf KONSTANTEN ----
 K = "'Konstanten'!"
 VA_RANGE = f"{K}$A$6:$B$13"
-RW_RANGE = f"{K}$E$6:$E$13"; RW_LIST = RW_RANGE
-ZONE_RANGE = f"{K}$H$6:$I$10"; ZONE_LIST = f"{K}$H$6:$H$10"   # Kürzel -> θF,max
+RW_RANGE = f"{K}$H$6:$H$19"; RW_LIST = RW_RANGE               # R-Werte rechts (Spalten G/H), höher
+ZONE_RANGE = f"{K}$E$6:$F$10"; ZONE_LIST = f"{K}$E$6:$E$10"   # Zonen links (D/E/F): Kürzel -> θF,max
 PIPE_RANGE = f"{K}$A$18:$E$25"; PIPE_LIST = f"{K}$A$18:$A$25"
 
 # =====================================================================
@@ -400,7 +405,7 @@ columns = [
     ("aktivier-\nbare Fläche", "A_F", "[m²]", 11, '0.0" m²"', BLUE),   # H
     ("R-Wert\nBodenbelag", "R_λ,B", "[m²·K/W]", 12, '0.000', BLUE),    # I
     ("Verlege–abstand", "VA", "[mm]", 11, '0" mm"', BLUE),             # J
-    ("Anz.\nHK", "n", "[-]", 9, '0', BLUE),                            # K
+    ("Anz.\nHK", "n", "[-]", 9, '0" HK"', BLUE),                       # K
     ("Zuleitungs-\nlänge", "L_zu", "[m]", 11, '0.0" m"', BLUE),        # L
     ("Zone", "", "", 7, "text", BLUE),                                 # M (Kürzel)
     ("log. Übertemperatur", "ΔθH", "[K]", 12, '0.00" K"', BLACK),      # N
@@ -515,7 +520,7 @@ def cf_pair(col, ok_formula, bad_formula):
     rl.conditional_formatting.add(rng, FormulaRule(formula=[bad_formula], fill=RED_FILL))
     rl.conditional_formatting.add(rng, FormulaRule(formula=[ok_formula], fill=GREEN_FILL))
 cf_pair("R", f'AND($R{R0}<>"",$R{R0}<=$S{R0})', f'AND($R{R0}<>"",$R{R0}>$S{R0})')
-cf_pair("U", f'AND($U{R0}<>"",$U{R0}>=0)', f'AND($U{R0}<>"",$U{R0}<0)')
+cf_pair("T", f'AND($T{R0}<>"",$F{R0}<>"",$T{R0}>=$F{R0})', f'AND($T{R0}<>"",$F{R0}<>"",$T{R0}<$F{R0})')
 cf_pair("V", f'AND($V{R0}<>"",$V{R0}>=1)', f'AND($V{R0}<>"",$V{R0}<1)')
 cf_pair("AB", f'AND($AB{R0}<>"",$AB{R0}<={gMax})', f'AND($AB{R0}<>"",$AB{R0}>{gMax})')
 cf_pair("AD", f'AND($AD{R0}<>"",$AD{R0}<={gVdot})', f'AND($AD{R0}<>"",$AD{R0}>{gVdot})')
@@ -525,17 +530,19 @@ cf_pair("AE", f'AND($AE{R0}<>"",$AE{R0}>={gvmin},$AE{R0}<={gvmax})',
 rl.conditional_formatting.add(f"H{R0}:H{R1}", FormulaRule(
     formula=[f'AND($H{R0}<>"",$D{R0}<>"",$H{R0}>$D{R0})'], fill=RED_FILL))
 # schlanker Standard: Zwischen-/Sekundärspalten ausblenden (jederzeit einblendbar)
-for col in ["N", "O", "P", "S", "W", "X", "Y", "Z", "AA", "AC", "AF", "AG", "AH", "AI", "AJ"]:
+for col in ["N", "O", "P", "S", "U", "W", "X", "Y", "Z", "AA", "AC", "AF", "AG", "AH", "AI", "AJ"]:
     rl.column_dimensions[col].hidden = True
 # sichtbare Spalten schmaler, damit das Blatt auf A4-Querformat passt
-narrow = {"A": 13, "B": 8, "C": 16, "D": 8, "E": 11, "F": 9, "G": 10, "H": 9, "I": 11,
-          "J": 9, "K": 7, "L": 11, "M": 6, "Q": 11, "R": 11, "T": 9, "U": 13, "V": 8,
+narrow = {"A": 13, "B": 11, "C": 16, "D": 8, "E": 11, "F": 9, "G": 10, "H": 9, "I": 11,
+          "J": 9, "K": 8, "L": 11, "M": 6, "Q": 11, "R": 11, "T": 9, "V": 8,
           "AB": 9, "AD": 10, "AE": 10, "AK": 10}
 for col, w in narrow.items():
     rl.column_dimensions[col].width = w
 rl.row_dimensions[NAME_ROW].height = 46   # mehr Höhe, da schmale Spalten stärker umbrechen
 disp_header(rl, "Auslegung – Fußbodenheizung", NCOL, "AJ2", "AJ2:AK2")
 setup_print(rl, f"A1:{LASTCOL}{R1}", titles="1:6", orientation="landscape", paper=9)
+rl.page_margins.left = rl.page_margins.right = 0.2   # schmalere Ränder → mehr Platz auf A4
+rl.page_margins.top = rl.page_margins.bottom = 0.3
 
 # =====================================================================
 #  Blatt 3: KONTROLLE
@@ -584,7 +591,7 @@ setup_print(ov, "A1:D25")
 # =====================================================================
 hv = wb.create_sheet("HKV")
 hv.sheet_view.showGridLines = False
-for col, w in (("A", 22), ("B", 12), ("C", 12), ("D", 20), ("E", 18), ("F", 18), ("G", 20), ("H", 34)):
+for col, w in (("A", 20), ("B", 10), ("C", 10), ("D", 17), ("E", 14), ("F", 14), ("G", 16), ("H", 50)):
     hv.column_dimensions[col].width = w
 for j, h in enumerate(["Heizkreisverteiler (HKV)", "Anzahl Kreise", "Spreizung [K]", "maßgebl. Leistung [W]",
                        "Massenstrom [kg/h]", "Volumenstrom [l/h]", "max. Druckverlust [Pa]",
@@ -769,27 +776,30 @@ setup_print(m, f"A1:F{end_b}")
 # =====================================================================
 kt = wb.create_sheet("Konstanten")
 kt.sheet_view.showGridLines = False
-for col, w in (("A", 22), ("B", 12), ("C", 9), ("D", 20), ("E", 12), ("F", 2), ("G", 16), ("H", 8), ("I", 11)):
+for col, w in (("A", 22), ("B", 12), ("C", 9), ("D", 17), ("E", 9), ("F", 12), ("G", 25), ("H", 12), ("I", 2)):
     kt.column_dimensions[col].width = w
 kt.cell(row=3, column=1, value="Nachschlage-Tabellen (editierbar). Leerzeilen = Platz für weitere Einträge.").font = f(italic=True, color=GREY, size=9)
-# Oben nebeneinander: Verlegeabstand-Faktor | R-Werte | Zonen
+# Oben nebeneinander: Verlegeabstand-Faktor (links) | Zonen (Mitte) | R-Werte (rechts, höher)
 two_col_table(kt, 4, 1, "Verlegeabstand-Faktor", "Verlegeabstand [mm]", "Faktor η [-]",
     [(50, 1.05), (75, 1.02), (100, 1.00), (125, 0.97), (150, 0.93), (200, 0.85), (250, 0.78), (300, 0.72)], '0.000')
-two_col_table(kt, 4, 4, "R-Werte Bodenbeläge", "Bodenbelag", "R [m²·K/W]",
-    [("Fliesen / Naturstein", 0.010), ("Linoleum / PVC", 0.05), ("Parkett / Laminat", 0.07),
-     ("Holzdielen", 0.10), ("Teppich", 0.15)], '0.000', n_empty=3)
 # Zonen 3-spaltig (Zone | Kürzel | θF,max) – Kürzel wird in der Auslegung verwendet
-kt.cell(row=4, column=7, value="Zonen / max. Oberflächentemp.").font = f(bold=True, color=NAVY)
-kt.merge_cells("G4:I4")
-mini_header(kt, 5, 7, "Zone"); mini_header(kt, 5, 8, "Kürzel"); mini_header(kt, 5, 9, "θF,max [°C]")
+kt.cell(row=4, column=4, value="Zonen / max. Oberflächentemp.").font = f(bold=True, color=NAVY)
+kt.merge_cells("D4:F4")
+mini_header(kt, 5, 4, "Zone"); mini_header(kt, 5, 5, "Kürzel"); mini_header(kt, 5, 6, "θF,max [°C]")
 zdata = [("Aufenthaltszone", "AZ", 29), ("Randzone", "RZ", 35), ("Badezimmer", "BAD", 33)]
 for i in range(5):   # 3 + 2 leer
     r = 6 + i
-    for col in (7, 8, 9):
+    for col in (4, 5, 6):
         cell = kt.cell(row=r, column=col); cell.font = f(color=BLUE); cell.fill = INPUT_FILL; cell.border = BORDER
-        cell.alignment = Alignment(horizontal="left" if col <= 8 else "center")
-        if col == 9: cell.number_format = '0" °C"'
-        if i < len(zdata): cell.value = zdata[i][col - 7]
+        cell.alignment = Alignment(horizontal="left" if col <= 5 else "center")
+        if col == 6: cell.number_format = '0" °C"'
+        if i < len(zdata): cell.value = zdata[i][col - 4]
+# R-Werte Bodenbeläge (rechts, mehr Auswahl)
+two_col_table(kt, 4, 7, "R-Werte Bodenbeläge", "Bodenbelag", "R [m²·K/W]",
+    [("Keramik / Feinsteinzeug", 0.010), ("Naturstein / Marmor", 0.015), ("PVC / Vinyl (verklebt)", 0.020),
+     ("Designboden (Klick)", 0.040), ("Linoleum 2,5 mm", 0.050), ("Laminat + Trittschall", 0.060),
+     ("Parkett / Fertigparkett", 0.075), ("Kork", 0.100), ("Holzdielen", 0.110),
+     ("Teppich (dünn)", 0.100), ("Teppich (dick)", 0.170)], '0.000', n_empty=3)
 # Darunter volle Breite: Rohrbibliothek
 kt.cell(row=16, column=1, value="Rohrbibliothek (di = da − 2·s)").font = f(bold=True, color=NAVY)
 for j, h in enumerate(["Rohrsystem", "da [mm]", "s [mm]", "di [mm]", "k [mm]"], start=1):
@@ -809,8 +819,8 @@ for i in range(8):
             if col in (2, 3): cell.number_format = '0.0'
             if col == 5: cell.number_format = '0.000'
             if i < len(pipes): cell.value = pipes[i][colmap[col]]
-disp_header(kt, "Konstanten / Bibliotheken", 9, project=False)
-setup_print(kt, "A1:I26")
+disp_header(kt, "Konstanten / Bibliotheken", 8, project=False)
+setup_print(kt, "A1:H26")
 
 # =====================================================================
 #  Blatt 8: CHANGELOG
