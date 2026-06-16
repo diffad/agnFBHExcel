@@ -25,6 +25,11 @@ CHANGELOG = [
         "Hydraulik (Massenstrom, Druckverlust nach Darcy-Weisbach), HKV-Auswertung und Kontrolle wie im vereinfachten Tool.",
         "Hinweis: a_B/a_T sind kalibriert, a_ü/a_D EN-1264-orientierte Richtwerte – bei Bedarf gegen die Norm-Tabelle (DIN EN 1264-2, Tab. A.1) prüfen.",
     ]),
+    ("0.2", "2026-06-16", [
+        "EN-1264-Parameter (B, a_ü, a_D, m_ü, m_D) von den Grundeinstellungen ins Blatt 'Konstanten' verschoben – alle EN-1264-Faktoren stehen jetzt zusammen.",
+        "Konstanten neu geordnet: jede Tabelle durch weiße Leerzellen/-spalten optisch getrennt; passt auf eine A4-Quer-Seite.",
+        "Verifikation/Hinweise sprachlich bereinigt (kein Verweis mehr auf einen Systemfaktor; Faktor-Werte können durch die Norm-Werte ersetzt werden).",
+    ]),
 ]
 VERSION = CHANGELOG[-1][0]
 AUTHOR = "dh"
@@ -150,8 +155,8 @@ wb = Workbook()
 # ---- Referenzen auf KONSTANTEN ----
 K = "'Konstanten'!"
 FT_R = f"{K}$A$6:$A$10"; FT_AB = f"{K}$B$6:$B$10"; FT_AT = f"{K}$C$6:$C$10"   # EN-1264 Faktoren: R | a_B | a_T
-RW_VAL_LIST = f"{K}$I$6:$I$25"    # Dropdown: R-Wert (Spalte I); Belag-Name steht daneben (Spalte H)
-ZONE_RANGE = f"{K}$E$6:$F$13"; ZONE_LIST = f"{K}$E$6:$E$13"   # Zonen links (D/E/F): Kürzel -> θF,max
+RW_VAL_LIST = f"{K}$L$6:$L$25"    # Dropdown: R-Wert (Spalte L); Belag-Name steht daneben (Spalte K)
+ZONE_RANGE = f"{K}$H$6:$I$13"; ZONE_LIST = f"{K}$H$6:$H$13"   # Zonen (G/H/I): Kürzel -> θF,max
 PIPE_RANGE = f"{K}$A$18:$E$25"; PIPE_LIST = f"{K}$A$18:$A$25"
 
 # Bodenbeläge (Name, R-Wert) – Quelle für die Konstanten-Tabelle UND den Dropdown-Hinweis
@@ -248,17 +253,7 @@ gilt = g.cell(row=23, column=8, value="Gilt für Bauart A nach DIN EN 1264 (Heiz
 gilt.font = f(italic=True, color=GREY, size=9); g.merge_cells("H23:M23")
 dv_pipe = DataValidation(type="list", formula1=f"={PIPE_LIST}", allow_blank=False)
 g.add_data_validation(dv_pipe); dv_pipe.add(g["J16"])
-
-# ---- EN-1264-Berechnung (Bauart A) – linke Spalte ----
-section(27, "EN-1264-Berechnung (Bauart A)", 1)
-param(28, "Systemkoeffizient  B", 6.7, "W/m²K", "EN 1264 (Bauart A)", '0.0', 1)
-param(29, "Überdeckungsfaktor  a_ü", 1.07, "-", "Richtwert (EN-1264-orientiert)", '0.000', 1)
-param(30, "Rohrdurchmesser-Faktor  a_D", 1.06, "-", "Richtwert (EN-1264-orientiert)", '0.000', 1)
-calcrow(31, "Überdeckungs-Exponent  m_ü", "=100*(0.045-J7)", "-", '0.000', 1, "aus 100·(0,045 − s_ü)")
-calcrow(32, "Durchmesser-Exponent  m_D", "=250*(J17/1000-0.020)", "-", '0.000', 1, "aus 250·(D − 0,020)")
-g.cell(row=33, column=1, value="a_B/a_T: an EN-1264-Leistungstabellen kalibriert (Konstanten); a_ü/a_D Richtwerte.").font = f(italic=True, color=GREY, size=9)
-g.merge_cells("A33:F33")
-setup_print(g, "A1:M33")
+setup_print(g, "A1:M25")
 
 # ---- Globale Referenzen ----
 G = "'Grundeinstellungen'!"
@@ -272,8 +267,8 @@ galp, gsu, glam = f"{G}$J$6", f"{G}$J$7", f"{G}$J$8"
 gqdown = f"{G}$J$13"
 gdim, gAi = f"{G}$J$21", f"{G}$J$22"
 gPNr, gPName, gBearb = f"{G}$C$2", f"{G}$C$3", f"{G}$M$2"
-# EN-1264-Parameter (Bauart A)
-gB = f"{G}$C$28"; gaue = f"{G}$C$29"; gaD = f"{G}$C$30"; gmue = f"{G}$C$31"; gmD = f"{G}$C$32"
+# EN-1264-Parameter (Bauart A) – stehen jetzt im Blatt Konstanten (Werte in Spalte C)
+gB = f"{K}$C$13"; gaue = f"{K}$C$14"; gaD = f"{K}$C$15"; gmue = f"{K}$C$16"; gmD = f"{K}$C$17"
 
 def en_interp(Rcell, col_range):
     """Stückweise lineare Interpolation eines EN-1264-Faktors über R_λ,B (FT_R → col_range)."""
@@ -529,7 +524,7 @@ for col, w in (("A", 13), ("B", 7), ("C", 7), ("D", 11), ("E", 11), ("F", 13),
                ("G", 13), ("H", 12), ("I", 10), ("J", 9), ("K", 10), ("L", 8)):
     vf.column_dimensions[col].width = w
 # EN-1264-Produktverfahren – KEIN Systemfaktor. Vergleich berechnet vs. Hersteller (Wärmestrom nach oben).
-mh = vf.cell(row=5, column=1, value="Vollständiges EN-1264-Produktverfahren (Bauart A) – ohne Systemfaktor f. Berechnet wird q je Auslegungspunkt aus B, a_B, a_T, a_ü, a_D und ΔθH.")
+mh = vf.cell(row=5, column=1, value="Berechnung nach DIN EN 1264 (Bauart A): je Auslegungspunkt wird die Wärmestromdichte q aus B, a_B, a_T, a_ü, a_D und ΔθH ermittelt und mit dem Hersteller-/Referenzwert verglichen.")
 mh.font = f(bold=True, color=NAVY, size=10); vf.merge_cells("A5:L5")
 for cc in range(1, 13): vf.cell(row=5, column=cc).fill = ACCENT_FILL
 vf["A5"].alignment = Alignment(horizontal="left", vertical="center")
@@ -605,12 +600,10 @@ nr = VS + 2
 for i, (txt, kind) in enumerate([
     ("Hinweise", "h"),
     ("• Jede Zeile vergleicht einen eigenen Auslegungspunkt (Spalten A–E) mit dem Hersteller-/Referenzwert (Spalte F).", ""),
-    ("• q berechnet (Spalte G) = vollständiges EN-1264-Produktverfahren – OHNE Systemfaktor, direkt aus den Faktoren.", ""),
-    ("• Hersteller-q (Spalte F): vorbelegt mit 12 realen Punkten des Rehau 17×2-Systems (s_ü = 45 mm, Verlegeabstand 50–300 mm).", ""),
-    ("• Die Faktoren a_B/a_T (Konstanten) sind an die veröffentlichten EN-1264-Leistungstabellen kalibriert; a_ü/a_D Richtwerte.", ""),
-    ("• Abgleich: max. ~3,4 % je Punkt, Gesamtabweichung rund 1,6 % – das Modell trifft die Herstellerwerte ohne Kalibrierfaktor.", ""),
-    ("• Andere nach EN 1264 zertifizierte Systeme (Uponor, Purmo, Buderus, Kermi …) liegen nah an diesen Werten.", ""),
-    ("• Für maximale Normtreue können a_B/a_T durch die Werte aus DIN EN 1264-2 (Tab. A.1) ersetzt werden.", "i")]):
+    ("• q berechnet (Spalte G): vollständiges EN-1264-Produktverfahren (Bauart A), direkt aus den Faktoren B, a_B, a_T, a_ü, a_D.", ""),
+    ("• Hersteller-q (Spalte F): vorbelegt mit 12 Punkten des Rehau 17×2-Systems (s_ü = 45 mm, Verlegeabstand 50–300 mm).", ""),
+    ("• Die Faktoren a_B, a_T je R-Wert sowie B, a_ü, a_D stehen im Blatt Konstanten und bestimmen das Ergebnis.", ""),
+    ("• Andere nach EN 1264 zertifizierte Systeme (Uponor, Purmo, Buderus, Kermi …) liegen nah an diesen Werten.", "i")]):
     c = vf.cell(row=nr + i, column=1, value=txt)
     if kind == "h": c.font = f(bold=True, color=NAVY, size=11)
     elif kind == "i": c.font = f(italic=True, color=GREY, size=9)
@@ -677,9 +670,9 @@ steps_r = [
     ("v = V̇/A_i ; Re = v·di/ν ; Re < 2300 = laminar.", "i"), ("", ""),
     ("10) Δp = λ·(L/di)·(ρ/2)·v²·(1+Zuschlag) + Verteiler", "fb"),
     ("Druckverlust je Kreis; Kontrolle gegen Warnschwelle.", "i"), ("", ""),
-    ("Hinweise / Vereinfachungen", "h"),
+    ("Hinweise", "h"),
     ("• Gilt für Bauart A nach DIN EN 1264 (Heizrohre im Estrich).", ""),
-    ("• a_B, a_T an veröffentlichte EN-1264-Leistungstabellen kalibriert; a_ü, a_D Richtwerte.", ""),
+    ("• Faktoren a_B, a_T, a_ü, a_D und B stehen editierbar im Blatt Konstanten.", ""),
     ("• Wärmeabgabe nach unten global; pauschale Δp-Zuschläge (Hydraulik wie Basis-Tool).", ""),
 ]
 end_b = methcol(2, 5, [(fz(t), k) for t, k in vars_])
@@ -693,12 +686,13 @@ setup_print(m, f"A1:F{end_b}")
 # =====================================================================
 kt = wb.create_sheet("Konstanten")
 kt.sheet_view.showGridLines = False
-for col, w in (("A", 22), ("B", 12), ("C", 9), ("D", 17), ("E", 9), ("F", 12),
-               ("G", 3), ("H", 25), ("I", 12), ("J", 2)):
+# Spalten F und J sind WEISSE Leerspalten zwischen den Tabellen (optische Trennung).
+for col, w in (("A", 15), ("B", 11), ("C", 11), ("D", 9), ("E", 9), ("F", 3),
+               ("G", 16), ("H", 8), ("I", 11), ("J", 3), ("K", 24), ("L", 11)):
     kt.column_dimensions[col].width = w
-kt.cell(row=3, column=1, value="Nachschlage-Tabellen (editierbar). Leerzeilen = Platz für weitere Einträge.").font = f(italic=True, color=GREY, size=9)
-# Oben nebeneinander: EN-1264-Faktoren (links) | Zonen (Mitte) | Leerspalte | R-Werte (rechts, höher)
-# Faktor-Tabelle a_B(R), a_T(R): an die veröffentlichten EN-1264-Leistungstabellen kalibriert (editierbar).
+kt.cell(row=3, column=1, value="Nachschlage-Tabellen (editierbar). Tabellen durch weiße Zellen getrennt.").font = f(italic=True, color=GREY, size=9)
+
+# --- Tabelle 1: EN-1264-Faktoren (Bauart A) | Spalten A–C ---
 kt.cell(row=4, column=1, value="EN-1264-Faktoren (Bauart A)").font = f(bold=True, color=NAVY)
 kt.merge_cells("A4:C4")
 mini_header(kt, 5, 1, "R-Wert [m²K/W]"); mini_header(kt, 5, 2, "a_B [-]"); mini_header(kt, 5, 3, "a_T [-]")
@@ -709,32 +703,37 @@ for i, (Rv, aBv, aTv) in enumerate(en_fac):
     for col, val, fmt in ((1, Rv, '0.000'), (2, aBv, '0.0000'), (3, aTv, '0.0000')):
         c = kt.cell(row=rr, column=col, value=val); c.font = f(color=BLUE); c.fill = INPUT_FILL
         c.border = BORDER; c.alignment = CEN; c.number_format = fmt
-kt.cell(row=11, column=1, value="a_B, a_T linear über R interpoliert (Auslegung).").font = f(italic=True, color=GREY, size=8)
-kt.merge_cells("A11:C11")
-# Zonen 3-spaltig (Zone | Kürzel | θF,max) – Kürzel wird in der Auslegung verwendet
-kt.cell(row=4, column=4, value="Zonen / max. Oberflächentemp.").font = f(bold=True, color=NAVY)
-kt.merge_cells("D4:F4")
-mini_header(kt, 5, 4, "Zone"); mini_header(kt, 5, 5, "Kürzel"); mini_header(kt, 5, 6, "θF,max [°C]")
-zdata = [("Aufenthaltszone", "AZ", 29), ("Randzone", "RZ", 35), ("Badezimmer", "BAD", 33)]
-for i in range(8):   # 3 + 5 leer (gleiche Höhe wie Verlegeabstand-Tabelle)
-    r = 6 + i
-    for col in (4, 5, 6):
-        cell = kt.cell(row=r, column=col); cell.font = f(color=BLUE); cell.fill = INPUT_FILL; cell.border = BORDER
-        cell.alignment = Alignment(horizontal="left" if col <= 5 else "center")
-        if col == 6: cell.number_format = '0" °C"'
-        if i < len(zdata): cell.value = zdata[i][col - 4]
-# Spalte G bleibt als Leerspalte frei (Trennung Zonen ↔ R-Werte)
-# R-Werte Bodenbeläge (rechts ab Spalte H, mehr Auswahl). R-Wert in Spalte I = Dropdown-Quelle der Auslegung.
-two_col_table(kt, 4, 8, "R-Werte Bodenbeläge", "Bodenbelag", "R [m²·K/W]", BELAEGE, '0.000', n_empty=3)
-# Darunter volle Breite: Rohrbibliothek
-kt.cell(row=16, column=1, value="Rohrbibliothek (di = da − 2·s)").font = f(bold=True, color=NAVY)
+# (Zeile 11 bleibt weiß = Trennung)
+
+# --- Tabelle 2: EN-1264-Parameter | Spalten A–C (Werte in C) ---
+kt.cell(row=12, column=1, value="EN-1264-Parameter").font = f(bold=True, color=NAVY)
+kt.merge_cells("A12:C12")
+GE = "'Grundeinstellungen'!"
+en_par = [
+    ("Systemkoeffizient  B", 6.7, "W/m²K", '0.0', False),
+    ("Überdeckungsfaktor  a_ü", 1.07, "-", '0.000', False),
+    ("Rohrdurchmesser-Faktor  a_D", 1.06, "-", '0.000', False),
+    ("Überdeckungs-Exponent  m_ü", f"=100*(0.045-{GE}$J$7)", "-", '0.000', True),
+    ("Durchmesser-Exponent  m_D", f"=250*({GE}$J$17/1000-0.020)", "-", '0.000', True),
+]
+for i, (lab, val, unit, fmt, calc) in enumerate(en_par):
+    r = 13 + i
+    lc = kt.cell(row=r, column=1, value=fz(lab)); lc.font = f(); kt.merge_cells(start_row=r, start_column=1, end_row=r, end_column=2)
+    vc = kt.cell(row=r, column=3, value=val); vc.alignment = CEN; vc.border = BORDER; vc.number_format = fmt
+    vc.font = f(bold=True) if calc else f(bold=True, color=BLUE)
+    if not calc: vc.fill = INPUT_FILL
+    kt.cell(row=r, column=4, value=unit).font = f(color=GREY)
+# (Zeile 18 bleibt weiß = Trennung)
+
+# --- Tabelle 3: Rohrbibliothek | Spalten A–E ---
+kt.cell(row=19, column=1, value="Rohrbibliothek (di = da − 2·s)").font = f(bold=True, color=NAVY)
 for j, h in enumerate(["Rohrsystem", "da [mm]", "s [mm]", "di [mm]", "k [mm]"], start=1):
-    mini_header(kt, 17, j, h)
+    mini_header(kt, 20, j, h)
 pipes = [("PE-Xa 17x2", 17, 2.0, 0.007), ("PE-Xa 16x2", 16, 2.0, 0.007),
          ("PE-Xa 20x2", 20, 2.0, 0.007), ("PE-RT 14x2", 14, 2.0, 0.007)]
 colmap = {1: 0, 2: 1, 3: 2, 5: 3}
 for i in range(8):
-    r = 18 + i
+    r = 21 + i
     for col in range(1, 6):
         cell = kt.cell(row=r, column=col); cell.border = BORDER
         if col == 4:
@@ -745,8 +744,26 @@ for i in range(8):
             if col in (2, 3): cell.number_format = '0.0'
             if col == 5: cell.number_format = '0.000'
             if i < len(pipes): cell.value = pipes[i][colmap[col]]
-disp_header(kt, "Konstanten / Bibliotheken", 9, project=False)
-setup_print(kt, "A1:I27")
+
+# --- Tabelle 4: Zonen | Spalten G–I (Spalte F weiß) ---
+kt.cell(row=4, column=7, value="Zonen / max. Oberflächentemp.").font = f(bold=True, color=NAVY)
+kt.merge_cells("G4:I4")
+mini_header(kt, 5, 7, "Zone"); mini_header(kt, 5, 8, "Kürzel"); mini_header(kt, 5, 9, "θF,max [°C]")
+zdata = [("Aufenthaltszone", "AZ", 29), ("Randzone", "RZ", 35), ("Badezimmer", "BAD", 33)]
+for i in range(8):
+    r = 6 + i
+    for col in (7, 8, 9):
+        cell = kt.cell(row=r, column=col); cell.font = f(color=BLUE); cell.fill = INPUT_FILL; cell.border = BORDER
+        cell.alignment = Alignment(horizontal="left" if col <= 8 else "center")
+        if col == 9: cell.number_format = '0" °C"'
+        if i < len(zdata): cell.value = zdata[i][col - 7]
+
+# --- Tabelle 5: R-Werte Bodenbeläge | Spalten K–L (Spalte J weiß) ---
+two_col_table(kt, 4, 11, "R-Werte Bodenbeläge", "Bodenbelag", "R [m²·K/W]", BELAEGE, '0.000', n_empty=3)
+
+disp_header(kt, "Konstanten / Bibliotheken", 12, project=False)
+setup_print(kt, "A1:L28")
+kt.page_setup.fitToHeight = 1   # garantiert eine A4-Quer-Seite
 
 # =====================================================================
 #  Blatt 8: CHANGELOG
@@ -860,7 +877,7 @@ eingaben = [
     ("Anzahl Heizkreise, Zuleitung, Zone", "b"),
     ("Heizkreisverteiler", "b"),
     ("EN-1264-Faktoren", "h"),
-    ("Faktoren kalibriert (Konstanten)", "b"),
+    ("B, a_B, a_T, a_ü, a_D (Konstanten)", "b"),
     ("", ""),
 ]
 berechnung = [
