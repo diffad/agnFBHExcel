@@ -172,6 +172,11 @@ CHANGELOG = [
         "Auslegung: in der Spalte wird wieder direkt der R-Wert ausgewählt (Spalte bleibt schmal). Die Zuordnung R-Wert ↔ Bodenbelag erscheint als Hinweis (Tooltip), sobald man die Zelle anklickt – ohne die Spalte zu verbreitern.",
         "Auslegung: Bearbeiter-Feld wieder aus den Grundeinstellungen referenziert (nur dort einmal eingeben) – daher ungefärbt; auf sichtbaren Spalten, damit der Eintrag nicht abgeschnitten wird.",
     ]),
+    ("0.30", "2026-06-16", [
+        "Verifikation: Beispielwerte durch 12 reale Herstellerpunkte ersetzt (Rehau 17×2, Estrichüberdeckung s_ü 45 mm; zwei Belag-/Temperaturfälle, Verlegeabstand 50–300 mm).",
+        "Verifikation: neue Summenzeile 'Gesamtabweichung (Σ über alle Punkte)' in W/m² und % – zeigt, wie gut der Systemfaktor f insgesamt passt (nahe 0 ⇒ gut kalibriert; bei Rehau ≈ −0,2 %).",
+        "Deckblatt: Hinweis-Kasten 'Vereinfachungen' entfernt (die Vereinfachungen sind weiterhin im Blatt 'Methodik' dokumentiert).",
+    ]),
 ]
 VERSION = CHANGELOG[-1][0]
 AUTHOR = "dh"
@@ -666,7 +671,7 @@ for cc in ("A5", "B5", "C5"): vf[cc].fill = ACCENT_FILL
 vf["A5"].alignment = Alignment(horizontal="right", vertical="center")
 fk = vf.cell(row=5, column=4, value=0.85); fk.font = f(bold=True, color=BLUE, size=11); fk.fill = INPUT_FILL
 fk.border = BORDER; fk.alignment = Alignment(horizontal="center", vertical="center"); fk.number_format = '0.000'
-vf.cell(row=5, column=5, value="← Best-Fit zu EN 1264 / Herstellerdaten").font = f(italic=True, color=GREY, size=9)
+vf.cell(row=5, column=5, value="← Best-Fit zu Rehau 17×2 (s_ü 45 mm) / EN 1264").font = f(italic=True, color=GREY, size=9)
 vf.row_dimensions[5].height = 22
 vf.cell(row=6, column=1, value="Jede Zeile ist ein eigener Auslegungspunkt (VL/RL, θi, R, Verlegeabstand). α und Estrich (s_ü, λ_E) global aus Grundeinstellungen.").font = f(italic=True, color=GREY, size=9)
 vf.merge_cells("A6:L6")
@@ -682,24 +687,21 @@ for j, h in enumerate(vhdr, start=1):
     c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True); c.border = BORDER
 vf.row_dimensions[VT].height = 40
 V0 = VT + 1
-# Beispiel-Auslegungspunkte: [VA, θV, θR, θi, R, Hersteller-q]; Hersteller-q nach DIN EN 1264
-# (Nasssystem/Tacker, Standardestrich; Quelle: Leistungstabelle fussbodenheizung24.de)
+# Beispiel-Auslegungspunkte: [VA, θV, θR, θi, R, Hersteller-q]
+# Reale Herstellerdaten: REHAU 17×2-System, Estrichüberdeckung s_ü = 45 mm (= globaler Default).
 vpts = [
-    [100, 40, 30, 20, 0.10, 54],
-    [150, 40, 30, 20, 0.10, 49],
-    [200, 40, 30, 20, 0.10, 44],
-    [300, 40, 30, 20, 0.10, 36],
-    [100, 40, 30, 20, 0.05, 69],
-    [150, 40, 30, 20, 0.05, 61],
-    [100, 40, 30, 20, 0.00, 93],
-    [100, 40, 30, 20, 0.15, 45],
-    [100, 40, 30, 24, 0.10, 38],
-    [100, 40, 30, 24, 0.00, 66],
-    [100, 45, 35, 20, 0.10, 73],
-    [200, 45, 35, 20, 0.10, 60],
-    [150, 45, 35, 20, 0.00, 110],
-    [100, 50, 40, 20, 0.10, 92],
-    [150, 50, 40, 20, 0.10, 84],
+    [300, 38, 30, 21, 0.125, 30],
+    [250, 38, 30, 21, 0.125, 33],
+    [200, 38, 30, 21, 0.125, 36],
+    [150, 38, 30, 21, 0.125, 40],
+    [100, 38, 30, 21, 0.125, 44],
+    [50,  38, 30, 21, 0.125, 49],
+    [300, 45, 35, 15, 0.050, 74],
+    [250, 45, 35, 15, 0.050, 83],
+    [200, 45, 35, 15, 0.050, 94],
+    [150, 45, 35, 15, 0.050, 105],
+    [100, 45, 35, 15, 0.050, 119],
+    [50,  45, 35, 15, 0.050, 135],
 ]
 V1 = V0 + len(vpts) - 1
 for i, pt in enumerate(vpts):
@@ -721,14 +723,31 @@ for i, pt in enumerate(vpts):
         cc = vf.cell(row=r, column=col, value=formula); cc.font = f(); cc.alignment = CEN; cc.number_format = fmt; cc.border = BORDER
 vf.conditional_formatting.add(f"I{V0}:I{V1}", FormulaRule(formula=[f'AND($I{V0}<>"",ABS($I{V0})>0.1)'], fill=RED_FILL))
 vf.conditional_formatting.add(f"I{V0}:I{V1}", FormulaRule(formula=[f'AND($I{V0}<>"",ABS($I{V0})<=0.1)'], fill=GREEN_FILL))
-nr = V1 + 2
+# Summenzeile: Gesamtabweichung über alle Punkte (≈ 0 ⇒ Systemfaktor f gut kalibriert)
+VS = V1 + 1
+slab = vf.cell(row=VS, column=1, value="Gesamtabweichung (Σ über alle Punkte) – nahe 0 ⇒ f gut kalibriert:")
+slab.font = f(bold=True, color=NAVY); slab.alignment = Alignment(horizontal="right", vertical="center")
+vf.merge_cells(start_row=VS, start_column=1, end_row=VS, end_column=7)
+for cc in range(1, 8): vf.cell(row=VS, column=cc).fill = SUB_FILL
+sh = vf.cell(row=VS, column=8, value=f"=SUM($H${V0}:$H${V1})")
+sh.font = f(bold=True); sh.number_format = '"+"0.0" W/m²";"-"0.0" W/m²";0" W/m²"'
+sh.alignment = CEN; sh.border = BORDER; sh.fill = SUB_FILL
+si = vf.cell(row=VS, column=9, value=f'=IFERROR(SUM($H${V0}:$H${V1})/SUM($G${V0}:$G${V1}),"")')
+si.font = f(bold=True); si.number_format = '"+"0.0%;"-"0.0%;0.0%'
+si.alignment = CEN; si.border = BORDER
+vf.conditional_formatting.add(f"I{VS}", FormulaRule(formula=[f'AND($I{VS}<>"",ABS($I{VS})>0.03)'], fill=RED_FILL))
+vf.conditional_formatting.add(f"I{VS}", FormulaRule(formula=[f'AND($I{VS}<>"",ABS($I{VS})<=0.03)'], fill=GREEN_FILL))
+vf.row_dimensions[VS].height = 18
+nr = VS + 2
 for i, (txt, kind) in enumerate([
     ("Hinweise", "h"),
     ("• Jede Zeile vergleicht einen eigenen Auslegungspunkt (Spalten A–E) mit dem Hersteller-/Referenzwert (Spalte F).", ""),
-    ("• Hersteller-q (Spalte F) aus dem Datenblatt eintragen. Vorbelegt sind 15 Referenzpunkte nach DIN EN 1264", ""),
-    ("   (Nasssystem/Tacker, Standardestrich; Leistungstabelle fussbodenheizung24.de, Stand 07/2017).", ""),
-    ("• Alle nach EN 1264 zertifizierten Systeme (Rehau, Uponor, Purmo, Buderus, Kermi …) liegen nah an diesen Werten.", ""),
-    ("• Systemfaktor f oben so wählen, dass die Abweichungen (Spalte I) klein/grün sind. f ≈ 0,85 passt zu EN 1264.", ""),
+    ("• Hersteller-q (Spalte F) aus dem Datenblatt eintragen. Vorbelegt: 12 reale Referenzpunkte des Rehau 17×2-Systems", ""),
+    ("   (Estrichüberdeckung s_ü = 45 mm, zwei Belag-/Temperaturfälle, Verlegeabstand 50–300 mm).", ""),
+    ("• Andere nach EN 1264 zertifizierte Systeme (Uponor, Purmo, Buderus, Kermi …) liegen nah an diesen Werten.", ""),
+    ("• Systemfaktor f oben so wählen, dass die Gesamtabweichung (Summenzeile) nahe 0 liegt. f ≈ 0,85 passt gut.", ""),
+    ("• Einzelne Punkte können bei sehr engem/weitem Verlegeabstand abweichen (vereinfachte η-Tabelle); der", ""),
+    ("   Gesamtabgleich (Summe) zeigt, dass f das Modell im Mittel sehr gut an die Herstellerdaten anpasst.", ""),
     ("• f bündelt die im überschlägigen Modell vereinfachten Effekte (Rohrwand-, Estrichspreizungs-Widerstand).", "i")]):
     c = vf.cell(row=nr + i, column=1, value=txt)
     if kind == "h": c.font = f(bold=True, color=NAVY, size=11)
@@ -946,20 +965,12 @@ box(6, 5, 24, 7, VER, fill=BODY_S, font=f(color=BLACK, size=10.5), align="left",
 box(6, 9, 24, 11, OUT, fill=BODY_S, font=f(color=BLACK, size=10.5), align="left", valign="top")
 for r in range(6, 25): db.row_dimensions[r].height = 13
 db.row_dimensions[5].height = 22
-# Vereinfachungen
-box(26, 1, 26, 11, "Vereinfachungen (überschlägig)", fill=AMB_H, font=f(bold=True, color=AMBER, size=11), align="left", valign="center")
-box(27, 1, 29, 11,
-    "Vereinfachtes K_H + Verlegeabstand-Faktor statt vollständigem EN 1264   ·   "
-    "Rohrwandwiderstand nicht enthalten (→ Systemfaktor f)   ·   "
-    "Wärmeabgabe nach unten global (gleiche Dämmung)   ·   "
-    "pauschaler Druckverlust-Zuschlag + fester Verteiler-Aufschlag",
-    fill=AMB_B, font=f(color=BLACK, size=10.5), align="left", valign="center")
-db.row_dimensions[26].height = 18
+# (Vereinfachungs-Hinweis entfernt – die Vereinfachungen sind im Blatt 'Methodik' dokumentiert.)
 db.page_setup.orientation = "landscape"
 db.page_setup.paperSize = 9
 db.sheet_properties.pageSetUpPr = PageSetupProperties(fitToPage=True)
 db.page_setup.fitToWidth = 1; db.page_setup.fitToHeight = 1
-db.print_area = "A1:K29"
+db.print_area = "A1:K24"
 db.page_margins.left = db.page_margins.right = 0.3
 db.page_margins.top = db.page_margins.bottom = 0.3
 
