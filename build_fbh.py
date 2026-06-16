@@ -183,6 +183,11 @@ CHANGELOG = [
         "Deckblatt/Methodik: Hinweis ergänzt, dass das Tool nur für Bauart A nach DIN EN 1264 (Heizrohre im Estrich) gilt.",
         "Auslegung: Hinweis-/Kommentartext (Tooltip) an der R-Wert-Spalte wieder entfernt (er aktualisiert sich nicht mit den Konstanten).",
     ]),
+    ("0.32", "2026-06-16", [
+        "Deckblatt neu strukturiert: jede Information in einer eigenen Zelle (keine Mehrzeilen-Blöcke mehr, keine Fehl-Umbrüche); die wichtigsten Formeln stehen jetzt direkt in der Spalte 'BERECHNUNG'.",
+        "Deckblatt: Bauart-A-Hinweis entfernt; steht stattdessen bei den Grundeinstellungen unter 'Gewähltes Rohrsystem'.",
+        "Verifikation: Systemfaktor-Feld vergrößert (Spalte breiter, Beschriftung etwas kleiner) – der Wert ist jetzt vollständig lesbar.",
+    ]),
 ]
 VERSION = CHANGELOG[-1][0]
 AUTHOR = "dh"
@@ -402,6 +407,8 @@ calcrow(19, "→ Innendurchmesser  di", f"=VLOOKUP($J$16,{PIPE_RANGE},4,FALSE)",
 calcrow(20, "→ Rauheit  k", f"=VLOOKUP($J$16,{PIPE_RANGE},5,FALSE)", "mm", '0.000" mm"', 8, "aus Rohrbibliothek")
 calcrow(21, "→ Innendurchmesser  di", "=J19/1000", "m", '0.0000" m"', 8, "für die Berechnung")
 calcrow(22, "→ Innenquerschnitt  A_i", "=PI()/4*J21^2", "m²", '0.000000" m²"', 8, "für die Berechnung")
+gilt = g.cell(row=23, column=8, value="Gilt für Bauart A nach DIN EN 1264 (Heizrohre im Estrich).")
+gilt.font = f(italic=True, color=GREY, size=9); g.merge_cells("H23:M23")
 dv_pipe = DataValidation(type="list", formula1=f"={PIPE_LIST}", allow_blank=False)
 g.add_data_validation(dv_pipe); dv_pipe.add(g["J16"])
 setup_print(g, "A1:M25")
@@ -662,11 +669,11 @@ setup_print(hv, f"A1:H{5 + N_HKV + 1}")
 # =====================================================================
 vf = wb.create_sheet("Verifikation")
 vf.sheet_view.showGridLines = False
-for col, w in (("A", 13), ("B", 7), ("C", 7), ("D", 8), ("E", 11), ("F", 13),
+for col, w in (("A", 13), ("B", 7), ("C", 7), ("D", 11), ("E", 11), ("F", 13),
                ("G", 13), ("H", 12), ("I", 10), ("J", 9), ("K", 10), ("L", 8)):
     vf.column_dimensions[col].width = w
 # Systemfaktor f – eine globale Kalibrierung des Modells an EN 1264
-vf.cell(row=5, column=1, value="Systemfaktor (EN 1264)  f =").font = f(bold=True, color=NAVY, size=11)
+vf.cell(row=5, column=1, value="Systemfaktor (EN 1264)  f =").font = f(bold=True, color=NAVY, size=10)
 vf.merge_cells("A5:C5")
 for cc in ("A5", "B5", "C5"): vf[cc].fill = ACCENT_FILL
 vf["A5"].alignment = Alignment(horizontal="right", vertical="center")
@@ -910,8 +917,8 @@ setup_print(cl, f"A1:C{r-1}")
 # =====================================================================
 db = wb.create_sheet("Deckblatt", 0)
 db.sheet_view.showGridLines = False
-for col, w in (("A", 14), ("B", 14), ("C", 14), ("D", 6), ("E", 14), ("F", 14),
-               ("G", 14), ("H", 6), ("I", 14), ("J", 14), ("K", 14)):
+for col, w in (("A", 14), ("B", 14), ("C", 14), ("D", 5), ("E", 16), ("F", 16),
+               ("G", 16), ("H", 5), ("I", 14), ("J", 14), ("K", 14)):
     db.column_dimensions[col].width = w
 RED_S = PatternFill("solid", fgColor="E2001A")
 GREEN_S = PatternFill("solid", fgColor="2E7D32")
@@ -942,99 +949,107 @@ db["A3"].value = f'="Projekt-Nr.: "&{gPNr}&"          Projekt: "&{gPName}&"     
 db["A3"].font = f(bold=True, color=NAVY, size=11)
 add_logo_corner(db, 11, height=34)
 
-# Spalten-Köpfe (fett, ausgeschriebene deutsche Begriffe)
+# Spalten-Köpfe (fett)
 box(5, 1, 5, 3, "EINGABEN", fill=HDR_FILL, font=f(bold=True, color=WHITE, size=13), align="center", valign="center")
 box(5, 5, 5, 7, "BERECHNUNG", fill=RED_S, font=f(bold=True, color=WHITE, size=13), align="center", valign="center")
 box(5, 9, 5, 11, "ERGEBNISSE", fill=GREEN_S, font=f(bold=True, color=WHITE, size=13), align="center", valign="center")
-# Pfeile
-box(6, 4, 20, 4, "→", font=f(bold=True, color="E2001A", size=22), align="center", valign="center", border=False)
-box(6, 8, 20, 8, "→", font=f(bold=True, color="E2001A", size=22), align="center", valign="center", border=False)
-# Inhalte – ausgeschrieben, ohne Abkürzungen
-INP = ("Globale Vorgaben\n"
-       "•  Vorlauf- und Rücklauftemperatur\n"
-       "•  Rohrsystem: Außendurchmesser, Wandstärke,\n     Innendurchmesser, Rauheit\n"
-       "•  Stoffwerte des Heizmediums\n"
-       "•  Wärmeübergangskoeffizient, Estrichaufbau,\n     Dämmung nach unten\n"
-       "•  Grenzwerte: Kreislänge, Druckverlust,\n     Strömungsgeschwindigkeit\n\n"
-       "Je Raum\n"
-       "•  Raumfläche und aktivierbare Fläche\n"
-       "•  Heizlast und Raumtemperatur\n"
-       "•  Bodenbelag-Wärmewiderstand und Verlegeabstand\n"
-       "•  Anzahl Heizkreise, Zuleitungslänge, Zone,\n     Heizkreisverteiler\n\n"
-       "Kalibrierung\n"
-       "•  Systemfaktor (Abgleich an DIN EN 1264\n     und Herstellerdaten)")
-VER = ("•  Logarithmische Übertemperatur\n"
-       "•  Wärmedurchgang nach oben mit\n     Verlegeabstand-Faktor\n"
-       "•  Spezifische Heizleistung nach oben\n"
-       "•  Bodenoberflächentemperatur\n"
-       "•  Deckung der Heizlast\n"
-       "•  Wärmeabgabe nach unten\n"
-       "•  Maßgebliche Leistung und Massenstrom\n"
-       "•  Druckverlust nach Darcy-Weisbach\n     (Strömung, Reynolds-Zahl, Rohrreibung)\n"
-       "•  Rohrlängen je Heizkreis")
-OUT = ("Je Raum\n"
-       "•  Spezifische Heizleistung und\n     Oberflächentemperatur\n"
-       "•  Deckungsgrad (Ampelbewertung)\n"
-       "•  Rohrlänge je Heizkreis (Ampelbewertung)\n"
-       "•  Massenstrom, Volumenstrom,\n     Strömungsgeschwindigkeit\n"
-       "•  Druckverlust je Heizkreis (Ampelbewertung)\n\n"
-       "Je Heizkreisverteiler\n"
-       "•  Leistung, Massenstrom, Volumenstrom\n"
-       "•  Maximaler Druckverlust\n\n"
-       "Gesamt\n"
-       "•  Kontrolle und Warnübersicht")
-box(6, 1, 20, 3, INP, fill=BODY_S, font=f(color=BLACK, size=10.5), align="left", valign="top")
-box(6, 5, 20, 7, VER, fill=BODY_S, font=f(color=BLACK, size=10.5), align="left", valign="top")
-box(6, 9, 20, 11, OUT, fill=BODY_S, font=f(color=BLACK, size=10.5), align="left", valign="top")
-for r in range(6, 21): db.row_dimensions[r].height = 16
-db.row_dimensions[5].height = 24
 
-# --- Die wichtigsten Berechnungsformeln (klar sichtbar) ---
+# Formelzeichen mit echten Tiefstellungen (für die Berechnungs-Spalte)
 def rsub(*segs):
-    sf = InlineFont(rFont=FONT, vertAlign="subscript", b=True, sz=12, color=NAVY)
+    sf = InlineFont(rFont=FONT, vertAlign="subscript", b=True, sz=10, color=NAVY)
     return CellRichText([TextBlock(sf, t) if sub else t for t, sub in segs])
 
-box(22, 1, 22, 11, "Die wichtigsten Berechnungsformeln", fill=HDR_FILL,
-    font=f(bold=True, color=WHITE, size=12), align="center", valign="center")
-db.row_dimensions[22].height = 20
-formulas = [
-    ("Logarithmische Übertemperatur",
-     rsub(("Δθ", False), ("H", True), (" = (θ", False), ("V", True), (" − θ", False), ("R", True),
-          (") / ln[(θ", False), ("V", True), (" − θ", False), ("i", True), (") / (θ", False), ("R", True),
-          (" − θ", False), ("i", True), (")]", False))),
-    ("Wärmedurchgang nach oben",
-     rsub(("K", False), ("H", True), (" = 1 / (1/α + R", False), ("Belag", True), (" + s", False), ("ü", True),
-          (" / λ", False), ("E", True), (")", False))),
-    ("Spezifische Heizleistung nach oben",
-     rsub(("q = f · η · K", False), ("H", True), (" · Δθ", False), ("H", True))),
-    ("Bodenoberflächentemperatur",
-     rsub(("θ", False), ("F", True), (" = θ", False), ("i", True), (" + q / α", False))),
-    ("Druckverlust (Darcy-Weisbach)",
-     "Δp = λ · (Rohrlänge / Innendurchmesser) · (ρ / 2) · v²"),
+# Eine Information = eine Zelle (keine zusammenhängenden Mehrzeilen-Blöcke, keine Fehl-Umbrüche)
+def db_item(r, c1, c2, text, kind):
+    if kind == "h":        # Zwischenüberschrift
+        box(r, c1, r, c2, text, fill=SUB_FILL, font=f(bold=True, color=NAVY, size=10.5), align="left", valign="center")
+    elif kind == "fmla":   # Formel (Rich-Text mit Tiefstellung) – klar sichtbar in der Berechnungs-Spalte
+        box(r, c1, r, c2, text, fill=None, font=f(bold=True, color=NAVY, size=10.5), align="left", valign="center")
+    elif kind == "b":      # Aufzählungspunkt
+        box(r, c1, r, c2, "•  " + text, fill=BODY_S, font=f(color=BLACK, size=10), align="left", valign="center")
+    else:                  # Leerzeile (Auffüllung für gleiche Spaltenhöhe)
+        box(r, c1, r, c2, "", fill=BODY_S, align="left", valign="center")
+
+def db_col(c1, c2, items, start=6):
+    for i, (text, kind) in enumerate(items):
+        db_item(start + i, c1, c2, text, kind)
+
+eingaben = [
+    ("Globale Vorgaben", "h"),
+    ("Vorlauf- und Rücklauftemperatur", "b"),
+    ("Rohrsystem und Stoffwerte", "b"),
+    ("Wärmeübergang und Estrichaufbau", "b"),
+    ("Dämmung nach unten", "b"),
+    ("Grenzwerte (Länge, Druck, Strömung)", "b"),
+    ("Je Raum", "h"),
+    ("Raumfläche und aktivierbare Fläche", "b"),
+    ("Heizlast und Raumtemperatur", "b"),
+    ("Bodenbelag-Widerstand, Verlegeabstand", "b"),
+    ("Anzahl Heizkreise, Zuleitung, Zone", "b"),
+    ("Heizkreisverteiler", "b"),
+    ("Kalibrierung", "h"),
+    ("Systemfaktor (DIN EN 1264 / Hersteller)", "b"),
 ]
-for k, (name, formula) in enumerate(formulas):
-    r = 23 + k
-    box(r, 1, r, 4, name, fill=BODY_S, font=f(bold=True, color=BLACK, size=10.5), align="left", valign="center")
-    box(r, 5, r, 11, formula, fill=None, font=f(bold=True, color=NAVY, size=12), align="left", valign="center")
-    db.row_dimensions[r].height = 22
-box(28, 1, 28, 11,
+berechnung = [
+    ("Heizleistung nach oben", "h"),
+    (rsub(("q = f · η · K", False), ("H", True), (" · Δθ", False), ("H", True)), "fmla"),
+    (rsub(("Δθ", False), ("H", True), (" = (θ", False), ("V", True), (" − θ", False), ("R", True),
+          (") / ln[(θ", False), ("V", True), (" − θ", False), ("i", True), (") / (θ", False),
+          ("R", True), (" − θ", False), ("i", True), (")]", False)), "fmla"),
+    (rsub(("K", False), ("H", True), (" = 1 / (1/α + R", False), ("Belag", True), (" + s", False),
+          ("ü", True), (" / λ", False), ("E", True), (")", False)), "fmla"),
+    ("Oberflächentemperatur", "h"),
+    (rsub(("θ", False), ("F", True), (" = θ", False), ("i", True), (" + q / α", False)), "fmla"),
+    ("Hydraulik / Druckverlust", "h"),
+    ("Maßgebliche Leistung → Massenstrom", "b"),
+    (rsub(("Δp = λ · (L / d", False), ("i", True), (") · (ρ / 2) · v²", False)), "fmla"),
+    ("Strömung: Reynolds-Zahl, Rohrreibung", "b"),
+    ("Rohrlängen je Heizkreis", "b"),
+    ("Prüfungen (Ampelbewertung)", "h"),
+    ("Deckung, Temperatur, Druckverlust", "b"),
+    ("", ""),
+]
+ergebnisse = [
+    ("Je Raum", "h"),
+    ("Spezifische Heizleistung", "b"),
+    ("Oberflächentemperatur", "b"),
+    ("Deckungsgrad (Ampelbewertung)", "b"),
+    ("Rohrlänge je Heizkreis (Ampel)", "b"),
+    ("Massenstrom und Volumenstrom", "b"),
+    ("Strömungsgeschwindigkeit", "b"),
+    ("Druckverlust je Heizkreis (Ampel)", "b"),
+    ("Je Heizkreisverteiler", "h"),
+    ("Leistung und Volumenstrom", "b"),
+    ("Maximaler Druckverlust", "b"),
+    ("Gesamt", "h"),
+    ("Kontrolle und Warnübersicht", "b"),
+    ("", ""),
+]
+db_col(1, 3, eingaben)
+db_col(5, 7, berechnung)
+db_col(9, 11, ergebnisse)
+NROW = max(len(eingaben), len(berechnung), len(ergebnisse))
+last = 6 + NROW - 1
+# Pfeile zwischen den Spalten
+box(6, 4, last, 4, "→", font=f(bold=True, color="E2001A", size=22), align="center", valign="center", border=False)
+box(6, 8, last, 8, "→", font=f(bold=True, color="E2001A", size=22), align="center", valign="center", border=False)
+db.row_dimensions[5].height = 20
+for r in range(6, last + 1): db.row_dimensions[r].height = 18
+
+# Fußzeile: Formelzeichen-Legende + Verweis auf Methodik
+box(last + 2, 1, last + 2, 11,
     "Formelzeichen:  θV / θR  Vorlauf- / Rücklauftemperatur · θi  Raumtemperatur · θF  Oberflächentemperatur · "
-    "α  Wärmeübergangskoeffizient · η  Verlegeabstand-Faktor · f  Systemfaktor · "
-    "λ  Rohrreibungszahl · ρ  Dichte · v  Strömungsgeschwindigkeit",
+    "α  Wärmeübergangskoeffizient · η  Verlegeabstand-Faktor · f  Systemfaktor · L  Rohrlänge · "
+    "di  Innendurchmesser · λ  Rohrreibungszahl · ρ  Dichte · v  Strömungsgeschwindigkeit",
     fill=None, font=f(italic=True, color=GREY, size=9), align="left", valign="center", border=False)
-db.row_dimensions[28].height = 14
-box(29, 1, 30, 11,
-    "Gültigkeit:  Diese überschlägige Auslegung gilt für Flächenheizungen der Bauart A nach DIN EN 1264 "
-    "(Heizrohre im Estrich, Wärmeabgabe über den Estrich nach oben). Die berechnete spezifische Heizleistung "
-    "ist der Wärmestrom nach oben zur Raumseite. Vereinfachungen und Annahmen siehe Blatt „Methodik“.",
-    fill=AMB_B, font=f(color=BLACK, size=10), align="left", valign="center")
-db.row_dimensions[29].height = 16
-db.row_dimensions[30].height = 16
+box(last + 3, 1, last + 3, 11,
+    "Überschlägige Auslegung – Vereinfachungen und Annahmen siehe Blatt „Methodik“.",
+    fill=None, font=f(italic=True, color=GREY, size=9), align="left", valign="center", border=False)
 db.page_setup.orientation = "landscape"
 db.page_setup.paperSize = 9
 db.sheet_properties.pageSetUpPr = PageSetupProperties(fitToPage=True)
 db.page_setup.fitToWidth = 1; db.page_setup.fitToHeight = 1
-db.print_area = "A1:K30"
+db.print_area = f"A1:K{last + 3}"
 db.page_margins.left = db.page_margins.right = 0.3
 db.page_margins.top = db.page_margins.bottom = 0.3
 
