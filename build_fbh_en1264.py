@@ -36,6 +36,11 @@ CHANGELOG = [
         "Bewertung als Symbol statt Farbe: neue Spalte 'Status' mit ✓ (alle Prüfungen ok) bzw. ! (Warnung) – auch im Schwarz-Weiß-Druck erkennbar; rote/grüne Zellhintergründe entfallen.",
         "Zebra-Streifen (jede zweite sichtbare Zeile) über bedingte Formatierung mit SUBTOTAL (filterfest); neue Filterfunktion (AutoFilter), Filtern trotz Blattschutz möglich.",
     ]),
+    ("0.4", "2026-06-17", [
+        "Graustufen-Design auf ALLE Blätter übertragen: dunkelblaue Flächen/Schrift → Grau bzw. Schwarz, gelbe Eingabefelder → helles Grau.",
+        "Auslegung: Status-Spalte (✓/!) wieder entfernt; Bewertung jetzt über die Schriftfarbe – leicht grün = im Rahmen, leicht rot = Grenzwert überschritten (auch in Kontrolle und Verifikation).",
+        "Tabellenkopf einheitlich in kräftigerem Grau; editierbare Zellen in hellerem Grau.",
+    ]),
 ]
 VERSION = CHANGELOG[-1][0]
 AUTHOR = "dh"
@@ -47,30 +52,32 @@ NAME_ROW, SYM_ROW, UNIT_ROW = 4, 5, 6
 R0, N_ROWS = 7, 200
 R1 = R0 + N_ROWS - 1   # 206
 EMU = 9525
-BLUE, BLACK, WHITE, GREY, NAVY = "0000FF", "000000", "FFFFFF", "808080", "1F4E78"
-HDR_FILL = PatternFill("solid", fgColor=NAVY)
-SUB_FILL = PatternFill("solid", fgColor="D9E1F2")
-INPUT_FILL = PatternFill("solid", fgColor="FFF2CC")
-ACCENT_FILL = PatternFill("solid", fgColor="FFE699")
+# Graustufen-Palette (Schrift schwarz; Farbe nur Logo; Bewertung über Schriftfarbe grün/rot)
+# BLUE bleibt als interne Spalten-Markierung (Eingabe vs. Berechnung) erhalten, wird aber nicht mehr als Textfarbe genutzt.
+BLUE, BLACK, WHITE, GREY, NAVY = "0000FF", "000000", "FFFFFF", "808080", "000000"
+HDR_FILL = PatternFill("solid", fgColor="D2D2D2")     # Tabellenkopf / Abschnittsbalken – kräftigeres Grau
+SUB_FILL = PatternFill("solid", fgColor="E6E6E6")
+INPUT_FILL = PatternFill("solid", fgColor="F2F2F2")   # editierbare Zellen – helles Grau
+ACCENT_FILL = PatternFill("solid", fgColor="E6E6E6")
 RED_FILL = PatternFill(start_color="FFFFC7CE", end_color="FFFFC7CE", fill_type="solid")
 GREEN_FILL = PatternFill(start_color="FFC6EFCE", end_color="FFC6EFCE", fill_type="solid")
-thin = Side(style="thin", color="BFBFBF")
+EVAL_OK, EVAL_WARN = "2E7D32", "C0392B"   # Bewertung als Schriftfarbe: leicht grün ok / leicht rot Grenzwert
+thin = Side(style="thin", color="C9C9C9")
 BORDER = Border(left=thin, right=thin, top=thin, bottom=thin)
 CEN = Alignment(horizontal="center")
 LEFT = Alignment(horizontal="left")
 
-# ---- Graustufen-Design (Schrift schwarz; Farbe nur Logo; Bewertung als ✓/!-Symbol) ----
+# ---- Auslegungs-spezifisch (Haarlinien, Kopfunterstrich, Zebra) ----
 INK = "000000"
-GREY_HDR = "ECECEC"     # Eingabespalten (Kopf + Datenbasis)
-GREY_HAIR = "C9C9C9"    # Haarlinien
+GREY_HAIR = "C9C9C9"
 _hair = Side(style="thin", color=GREY_HAIR)
 _blk_med = Side(style="medium", color=INK)
 HAIR_BORDER = Border(left=_hair, right=_hair, top=_hair, bottom=_hair)
 HEAD_UNDERLINE = Border(left=_hair, right=_hair, top=_hair, bottom=_blk_med)   # schwarze Linie unter dem Kopf
-INPUT_GREY_FILL = PatternFill("solid", fgColor=GREY_HDR)
+INPUT_GREY_FILL = INPUT_FILL   # editierbare Zellen (helles Grau, global)
 WHITE_FILL = PatternFill("solid", fgColor="FFFFFF")
-ZEBRA_CALC = PatternFill(start_color="FFF5F5F5", end_color="FFF5F5F5", fill_type="solid")   # Streifen Rechenspalten
-ZEBRA_INPUT = PatternFill(start_color="FFE0E0E0", end_color="FFE0E0E0", fill_type="solid")  # Streifen Eingabespalten
+ZEBRA_CALC = PatternFill(start_color="FFF6F6F6", end_color="FFF6F6F6", fill_type="solid")   # Streifen Rechenspalten
+ZEBRA_INPUT = PatternFill(start_color="FFE4E4E4", end_color="FFE4E4E4", fill_type="solid")  # Streifen Eingabespalten
 
 def f(bold=False, color=BLACK, size=10, italic=False):
     return Font(name=FONT, bold=bold, color=color, size=size, italic=italic)
@@ -148,7 +155,7 @@ def setup_print(ws, area, titles=None, orientation="landscape", paper=9):
 
 def mini_header(ws, row, col, text):
     c = ws.cell(row=row, column=col, value=text)
-    c.font = f(bold=True, color=WHITE); c.fill = HDR_FILL
+    c.font = f(bold=True, color=BLACK); c.fill = HDR_FILL
     c.alignment = Alignment(wrap_text=True, horizontal="center"); c.border = BORDER
 
 def two_col_table(ws, title_row, c0, title, hdr1, hdr2, rows, fmt2, n_empty=0):
@@ -160,8 +167,8 @@ def two_col_table(ws, title_row, c0, title, hdr1, hdr2, rows, fmt2, n_empty=0):
     for i in range(total):
         r = top + i
         a = ws.cell(row=r, column=c0); b = ws.cell(row=r, column=c0 + 1)
-        a.font = f(color=BLUE); a.fill = INPUT_FILL; a.border = BORDER
-        b.font = f(color=BLUE); b.fill = INPUT_FILL; b.border = BORDER; b.number_format = fmt2; b.alignment = CEN
+        a.font = f(color=BLACK); a.fill = INPUT_FILL; a.border = BORDER
+        b.font = f(color=BLACK); b.fill = INPUT_FILL; b.border = BORDER; b.number_format = fmt2; b.alignment = CEN
         if i < len(rows):
             a.value = rows[i][0]; b.value = rows[i][1]
             a.alignment = Alignment(horizontal="left" if isinstance(rows[i][0], str) else "center")
@@ -204,19 +211,19 @@ add_logo_corner(g, 13, height=40)
 for row, lab in ((2, "Projekt-Nr."), (3, "Projektname")):
     g.cell(row=row, column=1, value=lab).font = f(bold=True)
     g.merge_cells(start_row=row, start_column=1, end_row=row, end_column=2)
-    v = g.cell(row=row, column=3, value=""); v.font = f(bold=True, color=BLUE); v.fill = INPUT_FILL; v.border = BORDER; v.alignment = LEFT
+    v = g.cell(row=row, column=3, value=""); v.font = f(bold=True, color=BLACK); v.fill = INPUT_FILL; v.border = BORDER; v.alignment = LEFT
     g.merge_cells(start_row=row, start_column=3, end_row=row, end_column=6)
 g.cell(row=2, column=12, value="Bearbeiter:").font = f(italic=True, color=GREY, size=9)
 g["L2"].alignment = Alignment(horizontal="right")
-bf = g.cell(row=2, column=13, value=""); bf.font = f(bold=True, color=BLUE); bf.fill = INPUT_FILL; bf.border = BORDER; bf.alignment = CEN
+bf = g.cell(row=2, column=13, value=""); bf.font = f(bold=True, color=BLACK); bf.fill = INPUT_FILL; bf.border = BORDER; bf.alignment = CEN
 
 def section(row, text, cL):
     for col in range(cL, cL + 6): g.cell(row=row, column=col).fill = HDR_FILL
-    g.cell(row=row, column=cL, value=text).font = f(bold=True, color=WHITE)
+    g.cell(row=row, column=cL, value=text).font = f(bold=True, color=BLACK)
 def param(row, label, value, unit, note, fmt, cL):
     g.cell(row=row, column=cL, value=fz(label)).font = f()
     g.merge_cells(start_row=row, start_column=cL, end_row=row, end_column=cL + 1)
-    v = g.cell(row=row, column=cL + 2, value=value); v.font = f(bold=True, color=BLUE); v.alignment = CEN; v.border = BORDER; v.fill = INPUT_FILL
+    v = g.cell(row=row, column=cL + 2, value=value); v.font = f(bold=True, color=BLACK); v.alignment = CEN; v.border = BORDER; v.fill = INPUT_FILL
     if fmt: v.number_format = fmt
     g.cell(row=row, column=cL + 3, value=unit).font = f(color=GREY)
     g.cell(row=row, column=cL + 4, value=note).font = f(italic=True, color=GREY, size=9)
@@ -259,7 +266,7 @@ param(12, "Temperatur unter der Decke  θ_u", 10, "°C", "Raum/Erdreich unter FB
 calcrow(13, "Wärmestrom nach unten  q_u", "=((C6+C7)/2-J12)/J11", "W/m²", '0.0" W/m²"', 8, "Mittel θm = (θV+θR)/2")
 section(15, "Rohrsystem-Auswahl (Werte aus Konstanten)", 8)
 g.cell(row=16, column=8, value="Gewähltes Rohrsystem").font = f(); g.merge_cells("H16:I16")
-v = g.cell(row=16, column=10, value="PE-Xa 17x2"); v.font = f(bold=True, color=BLUE); v.fill = INPUT_FILL; v.alignment = CEN; v.border = BORDER
+v = g.cell(row=16, column=10, value="PE-Xa 17x2"); v.font = f(bold=True, color=BLACK); v.fill = INPUT_FILL; v.alignment = CEN; v.border = BORDER
 g.merge_cells("J16:K16")
 g.cell(row=16, column=12, value="Dropdown").font = f(italic=True, color=GREY, size=9); g.merge_cells("L16:M16")
 calcrow(17, "→ Außendurchmesser  da", f"=VLOOKUP($J$16,{PIPE_RANGE},2,FALSE)", "mm", '0.0" mm"', 8, "aus Rohrbibliothek")
@@ -340,8 +347,7 @@ columns = [
     ("Δp Reibung", "Δp_R", "[Pa]", 11, '#,##0" Pa"', BLACK),           # AI
     ("spez. Druckverlust", "R", "[Pa/m]", 12, '#,##0" Pa/m"', BLACK),  # AJ
     ("Druck-\nverlust", "Δp", "[Pa]", 12, '#,##0" Pa"', BLACK),        # AK
-    ("Status", "", "", 8, "text", BLACK),                              # AL  (✓ = alle Prüfungen ok, ! = Warnung)
-]  # A..AL = 38
+]  # A..AK = 37
 NCOL = len(columns)
 LASTCOL = get_column_letter(NCOL)
 INPUT_COLS = [j for j, c in enumerate(columns, start=1) if c[5] == BLUE]
@@ -350,7 +356,7 @@ INPUT_STYLED = {7}   # spez. Heizlast: berechnet, aber optisch wie die Eingabesp
 for j, (name, sym, unit, width, fmt, color) in enumerate(columns, start=1):
     rl.column_dimensions[get_column_letter(j)].width = width
     is_inp = (color == BLUE) or (j in INPUT_STYLED)
-    fill = INPUT_GREY_FILL if is_inp else WHITE_FILL   # Eingabespalten grau, Rechenspalten weiß
+    fill = HDR_FILL   # gesamter Tabellenkopf in kräftigerem Grau (einheitlich)
     for row, txt, sz in ((NAME_ROW, name, 10), (SYM_ROW, sym, 13), (UNIT_ROW, unit, 9)):
         bold = row != UNIT_ROW                          # Einheiten nicht fett, aber schwarz
         val = fz(txt, color=INK, bold=bold, size=sz) if row == SYM_ROW else txt
@@ -390,15 +396,6 @@ def F(r):
         35: f'=IF(OR($B{r}="",$AH{r}="",$AB{r}=""),"",IFERROR($AH{r}*($AB{r}/{gdim})*({grho}/2)*$AE{r}^2,""))',
         36: f'=IF(OR($B{r}="",$AI{r}="",$AB{r}=""),"",IFERROR($AI{r}/$AB{r},""))',
         37: f'=IF(OR($B{r}="",$AI{r}=""),"",$AI{r}*(1+{gzus})+{gVarm})',
-        38: (f'=IF($B{r}="","",IF(AND('                                  # ✓ wenn alle Prüfungen ok
-             f'IF($R{r}="",TRUE,$R{r}<=$S{r}),'                           # Oberflächentemperatur
-             f'IF(OR($T{r}="",$F{r}=""),TRUE,$T{r}>=$F{r}),'             # Heizlast gedeckt
-             f'IF(OR($H{r}="",$D{r}=""),TRUE,$H{r}<=$D{r}),'            # aktivierbare Fläche
-             f'IF($AB{r}="",TRUE,$AB{r}<={gMax}),'                       # Kreislänge
-             f'IF($AD{r}="",TRUE,$AD{r}<={gVdot}),'                      # Volumenstrom
-             f'IF($AK{r}="",TRUE,$AK{r}<={gWarn}),'                      # Druckverlust
-             f'IF($AE{r}="",TRUE,AND($AE{r}>={gvmin},$AE{r}<={gvmax}))'  # Geschwindigkeit
-             f'),"✓","!"))'),
     }
 
 examples = [   # Heizlast so gewählt, dass spez. Heizlast (Q/Raumfläche) <= 50 W/m², bunte Mischung
@@ -425,7 +422,6 @@ for idx, r in enumerate(range(R0, R1 + 1)):
         c = rl.cell(row=r, column=j, value=fr[j])
         c.font = f(color=INK); c.border = HAIR_BORDER
         if j in INPUT_STYLED: c.fill = INPUT_GREY_FILL
-        if j == NCOL: c.font = f(bold=True, color=INK, size=13)   # Status-Symbol ✓/! groß
         fmt = columns[j - 1][4]
         if fmt != "text": c.number_format = fmt
         c.alignment = CEN
@@ -436,9 +432,23 @@ rl.add_data_validation(dv_zone); dv_zone.add(f"M{R0}:M{R1}")
 dv_rw = DataValidation(type="list", formula1=f"={RW_VAL_LIST}", allow_blank=True, showErrorMessage=False)
 rl.add_data_validation(dv_rw); dv_rw.add(f"I{R0}:I{R1}")
 
-# Bewertung erfolgt jetzt über die Status-Spalte (✓ / !) – keine farbigen Zellhintergründe mehr
-# (gut im Schwarz-Weiß-Druck erkennbar). Stattdessen Zebra-Streifen für die Lesbarkeit:
-# filterfest via SUBTOTAL (zählt nur sichtbare Zeilen → bleibt beim Filtern korrekt).
+# Bewertung über die SCHRIFTFARBE: leicht grün = ok, leicht rot = Grenzwert überschritten.
+# (Keine farbigen Zellhintergründe; Werte bleiben sonst schwarz.)
+def cf_font(col, ok_formula, bad_formula):
+    rng = f"{col}{R0}:{col}{R1}"
+    rl.conditional_formatting.add(rng, FormulaRule(formula=[bad_formula], font=Font(color=EVAL_WARN)))
+    rl.conditional_formatting.add(rng, FormulaRule(formula=[ok_formula], font=Font(color=EVAL_OK)))
+cf_font("R", f'AND($R{R0}<>"",$R{R0}<=$S{R0})', f'AND($R{R0}<>"",$R{R0}>$S{R0})')
+cf_font("T", f'AND($T{R0}<>"",$F{R0}<>"",$T{R0}>=$F{R0})', f'AND($T{R0}<>"",$F{R0}<>"",$T{R0}<$F{R0})')
+cf_font("V", f'AND($V{R0}<>"",$V{R0}>=1)', f'AND($V{R0}<>"",$V{R0}<1)')
+cf_font("AB", f'AND($AB{R0}<>"",$AB{R0}<={gMax})', f'AND($AB{R0}<>"",$AB{R0}>{gMax})')
+cf_font("AD", f'AND($AD{R0}<>"",$AD{R0}<={gVdot})', f'AND($AD{R0}<>"",$AD{R0}>{gVdot})')
+cf_font("AK", f'AND($AK{R0}<>"",$AK{R0}<={gWarn})', f'AND($AK{R0}<>"",$AK{R0}>{gWarn})')
+cf_font("AE", f'AND($AE{R0}<>"",$AE{R0}>={gvmin},$AE{R0}<={gvmax})',
+        f'AND($AE{R0}<>"",OR($AE{R0}<{gvmin},$AE{R0}>{gvmax}))')
+rl.conditional_formatting.add(f"H{R0}:H{R1}", FormulaRule(
+    formula=[f'AND($H{R0}<>"",$D{R0}<>"",$H{R0}>$D{R0})'], font=Font(color=EVAL_WARN)))
+# Zebra-Streifen (filterfest via SUBTOTAL: zählt nur sichtbare Zeilen) für die Lesbarkeit.
 _zform = f'AND($B{R0}<>"",MOD(SUBTOTAL(103,$B${R0}:$B{R0}),2)=0)'
 _inp_z = sorted(set(INPUT_COLS) | INPUT_STYLED)
 _calc_z = sorted(set(CALC_COLS) - INPUT_STYLED)
@@ -451,7 +461,7 @@ for col in ["N", "O", "P", "S", "U", "W", "X", "Y", "Z", "AA", "AC", "AF", "AG",
 # sichtbare Spalten schmaler, damit das Blatt auf A4-Querformat passt
 narrow = {"A": 13, "B": 11, "C": 16, "D": 8, "E": 11, "F": 9, "G": 10, "H": 9, "I": 11,
           "J": 9, "K": 8, "L": 11, "M": 6, "Q": 11, "R": 11, "T": 9, "V": 8,
-          "AB": 9, "AD": 10, "AE": 10, "AK": 10, "AL": 7}
+          "AB": 9, "AD": 10, "AE": 10, "AK": 10}
 for col, w in narrow.items():
     rl.column_dimensions[col].width = w
 rl.row_dimensions[NAME_ROW].height = 46   # mehr Höhe, da schmale Spalten stärker umbrechen
@@ -490,7 +500,7 @@ def ovrow(r, label, formula, unit, fmt='#,##0', note=""):
     c.alignment = CEN; c.border = BORDER
     ov.cell(row=r, column=3, value=unit).font = f(color=GREY)
     if note: ov.cell(row=r, column=4, value=note).font = f(italic=True, color=GREY, size=9)
-c = ov.cell(row=5, column=1, value="Summen / Kennzahlen"); c.font = f(bold=True, color=WHITE); c.fill = HDR_FILL
+c = ov.cell(row=5, column=1, value="Summen / Kennzahlen"); c.font = f(bold=True, color=BLACK); c.fill = HDR_FILL
 for col in (2, 3, 4): ov.cell(row=5, column=col).fill = HDR_FILL
 ovrow(6, "Anzahl Räume", f"=COUNTA({AUS}B{R0}:B{R1})", "-", '0')
 ovrow(7, "Gesamte Heizlast", f"=SUM({AUS}F{R0}:F{R1})", "W")
@@ -504,7 +514,7 @@ ovrow(14, "Gesamtmassenstrom (Pumpe)", f"=SUM({AUS}AC{R0}:AC{R1})", "kg/h", '#,#
 ovrow(15, "Gesamtvolumenstrom (Pumpe)", f"=SUM({AUS}AD{R0}:AD{R1})", "l/h", '#,##0')
 ovrow(16, "Max. Druckverlust eines Kreises", f"=IFERROR(MAX({AUS}AK{R0}:AK{R1}),0)", "Pa")
 ovrow(17, "Max. Strömungsgeschwindigkeit", f"=IFERROR(MAX({AUS}AE{R0}:AE{R1}),0)", "m/s", '0.000')
-c = ov.cell(row=19, column=1, value="Warnungen"); c.font = f(bold=True, color=WHITE); c.fill = HDR_FILL
+c = ov.cell(row=19, column=1, value="Warnungen"); c.font = f(bold=True, color=BLACK); c.fill = HDR_FILL
 for col in (2, 3, 4): ov.cell(row=19, column=col).fill = HDR_FILL
 ovrow(20, "Räume unterdeckt", f'=COUNTIF({AUS}V{R0}:V{R1},"<1")', "-", '0', "Heizlast nicht gedeckt")
 ovrow(21, "Kreise zu lang", f'=COUNTIF({AUS}AB{R0}:AB{R1},">"&{gMax})', "-", '0', "> max. Kreislänge")
@@ -513,8 +523,8 @@ ovrow(23, "Oberflächentemperatur zu hoch", f'=SUMPRODUCT(({AUS}R{R0}:R{R1}<>"")
 ovrow(24, "Geschwindigkeit außerhalb v_min–v_max", f'=SUMPRODUCT(({AUS}AE{R0}:AE{R1}<>"")*(({AUS}AE{R0}:AE{R1}<{gvmin})+({AUS}AE{R0}:AE{R1}>{gvmax})))', "-", '0', "Kreise")
 ovrow(25, "Volumenstrom je Kreis zu hoch", f'=COUNTIF({AUS}AD{R0}:AD{R1},">"&{gVdot})', "-", '0', "> max. Volumenstrom")
 for r in (20, 21, 22, 23, 24, 25):
-    ov.conditional_formatting.add(f"B{r}", FormulaRule(formula=[f"$B${r}>0"], fill=RED_FILL))
-    ov.conditional_formatting.add(f"B{r}", FormulaRule(formula=[f"$B${r}=0"], fill=GREEN_FILL))
+    ov.conditional_formatting.add(f"B{r}", FormulaRule(formula=[f"$B${r}>0"], font=Font(color=EVAL_WARN)))
+    ov.conditional_formatting.add(f"B{r}", FormulaRule(formula=[f"$B${r}=0"], font=Font(color=EVAL_OK)))
 disp_header(ov, "Kontrolle / Auswertung", 4, "D2")
 setup_print(ov, "A1:D25")
 
@@ -529,7 +539,7 @@ for j, h in enumerate(["Heizkreisverteiler (HKV)", "Anzahl Kreise", "Spreizung [
                        "Massenstrom [kg/h]", "Volumenstrom [l/h]", "max. Druckverlust [Pa]",
                        "angebundene Räume (Raum-Nr.)"], start=1):
     c = hv.cell(row=4, column=j, value=h)
-    c.font = f(bold=True, color=WHITE); c.fill = HDR_FILL
+    c.font = f(bold=True, color=BLACK); c.fill = HDR_FILL
     c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True); c.border = BORDER
 hv.row_dimensions[4].height = 30
 Aaus = f"{AUS}$A${R0}:$A${R1}"
@@ -605,7 +615,7 @@ for i, pt in enumerate(vpts):
     inputs = {1: (pt[0], '0" mm"'), 2: (pt[1], '0.0" °C"'), 3: (pt[2], '0.0" °C"'),
               4: (pt[3], '0.0" °C"'), 5: (pt[4], '0.000'), 6: (pt[5], '0.0" W/m²"')}
     for col, (val, fmt) in inputs.items():
-        cc = vf.cell(row=r, column=col, value=val); cc.font = f(color=BLUE); cc.fill = INPUT_FILL
+        cc = vf.cell(row=r, column=col, value=val); cc.font = f(color=BLACK); cc.fill = INPUT_FILL
         cc.alignment = CEN; cc.number_format = fmt; cc.border = BORDER
     mT = f"(1-($A{r}/1000)/0.075)"
     forms = {
@@ -619,8 +629,8 @@ for i, pt in enumerate(vpts):
     }
     for col, (formula, fmt) in forms.items():
         cc = vf.cell(row=r, column=col, value=formula); cc.font = f(); cc.alignment = CEN; cc.number_format = fmt; cc.border = BORDER
-vf.conditional_formatting.add(f"I{V0}:I{V1}", FormulaRule(formula=[f'AND($I{V0}<>"",ABS($I{V0})>0.05)'], fill=RED_FILL))
-vf.conditional_formatting.add(f"I{V0}:I{V1}", FormulaRule(formula=[f'AND($I{V0}<>"",ABS($I{V0})<=0.05)'], fill=GREEN_FILL))
+vf.conditional_formatting.add(f"I{V0}:I{V1}", FormulaRule(formula=[f'AND($I{V0}<>"",ABS($I{V0})>0.05)'], font=Font(color=EVAL_WARN)))
+vf.conditional_formatting.add(f"I{V0}:I{V1}", FormulaRule(formula=[f'AND($I{V0}<>"",ABS($I{V0})<=0.05)'], font=Font(color=EVAL_OK)))
 # Summenzeile: Gesamtabweichung über alle Punkte (zeigt die Güte des EN-1264-Modells)
 VS = V1 + 1
 slab = vf.cell(row=VS, column=1, value="Gesamtabweichung (Σ über alle Punkte):")
@@ -633,8 +643,8 @@ sh.alignment = CEN; sh.border = BORDER; sh.fill = SUB_FILL
 si = vf.cell(row=VS, column=9, value=f'=IFERROR(SUM($H${V0}:$H${V1})/SUM($G${V0}:$G${V1}),"")')
 si.font = f(bold=True); si.number_format = '"+"0.0%;"-"0.0%;0.0%'
 si.alignment = CEN; si.border = BORDER
-vf.conditional_formatting.add(f"I{VS}", FormulaRule(formula=[f'AND($I{VS}<>"",ABS($I{VS})>0.05)'], fill=RED_FILL))
-vf.conditional_formatting.add(f"I{VS}", FormulaRule(formula=[f'AND($I{VS}<>"",ABS($I{VS})<=0.05)'], fill=GREEN_FILL))
+vf.conditional_formatting.add(f"I{VS}", FormulaRule(formula=[f'AND($I{VS}<>"",ABS($I{VS})>0.05)'], font=Font(color=EVAL_WARN)))
+vf.conditional_formatting.add(f"I{VS}", FormulaRule(formula=[f'AND($I{VS}<>"",ABS($I{VS})<=0.05)'], font=Font(color=EVAL_OK)))
 vf.row_dimensions[VS].height = 18
 nr = VS + 2
 for i, (txt, kind) in enumerate([
@@ -741,7 +751,7 @@ en_fac = [(0.00, 1.0846, 1.2393), (0.05, 0.7880, 1.1957), (0.10, 0.6143, 1.1646)
 for i, (Rv, aBv, aTv) in enumerate(en_fac):
     rr = 6 + i
     for col, val, fmt in ((1, Rv, '0.000'), (2, aBv, '0.0000'), (3, aTv, '0.0000')):
-        c = kt.cell(row=rr, column=col, value=val); c.font = f(color=BLUE); c.fill = INPUT_FILL
+        c = kt.cell(row=rr, column=col, value=val); c.font = f(color=BLACK); c.fill = INPUT_FILL
         c.border = BORDER; c.alignment = CEN; c.number_format = fmt
 # (Zeile 11 bleibt weiß = Trennung)
 
@@ -760,7 +770,7 @@ for i, (lab, val, unit, fmt, calc) in enumerate(en_par):
     r = 13 + i
     lc = kt.cell(row=r, column=1, value=fz(lab)); lc.font = f(); kt.merge_cells(start_row=r, start_column=1, end_row=r, end_column=2)
     vc = kt.cell(row=r, column=3, value=val); vc.alignment = CEN; vc.border = BORDER; vc.number_format = fmt
-    vc.font = f(bold=True) if calc else f(bold=True, color=BLUE)
+    vc.font = f(bold=True) if calc else f(bold=True, color=BLACK)
     if not calc: vc.fill = INPUT_FILL
     kt.cell(row=r, column=4, value=unit).font = f(color=GREY)
 # (Zeile 18 bleibt weiß = Trennung)
@@ -779,7 +789,7 @@ for i in range(8):
         if col == 4:
             cell.value = f'=IF(B{r}="","",B{r}-2*C{r})'; cell.font = f(color=BLACK); cell.number_format = '0.0'; cell.alignment = CEN
         else:
-            cell.font = f(color=BLUE); cell.fill = INPUT_FILL
+            cell.font = f(color=BLACK); cell.fill = INPUT_FILL
             cell.alignment = Alignment(horizontal="left" if col == 1 else "center")
             if col in (2, 3): cell.number_format = '0.0'
             if col == 5: cell.number_format = '0.000'
@@ -793,7 +803,7 @@ zdata = [("Aufenthaltszone", "AZ", 29), ("Randzone", "RZ", 35), ("Badezimmer", "
 for i in range(8):
     r = 6 + i
     for col in (7, 8, 9):
-        cell = kt.cell(row=r, column=col); cell.font = f(color=BLUE); cell.fill = INPUT_FILL; cell.border = BORDER
+        cell = kt.cell(row=r, column=col); cell.font = f(color=BLACK); cell.fill = INPUT_FILL; cell.border = BORDER
         cell.alignment = Alignment(horizontal="left" if col <= 8 else "center")
         if col == 9: cell.number_format = '0" °C"'
         if i < len(zdata): cell.value = zdata[i][col - 7]
@@ -814,7 +824,7 @@ for col, w in (("A", 12), ("B", 14), ("C", 115)):
     cl.column_dimensions[col].width = w
 for j, h in enumerate(["Version", "Datum", "Änderungen"], start=1):
     c = cl.cell(row=5, column=j, value=h)
-    c.font = f(bold=True, color=WHITE); c.fill = HDR_FILL
+    c.font = f(bold=True, color=BLACK); c.fill = HDR_FILL
     c.alignment = Alignment(horizontal="left", vertical="center"); c.border = BORDER
 r = 6
 for ver, datum, changes in reversed(CHANGELOG):
@@ -842,8 +852,8 @@ db.sheet_view.showGridLines = False
 for col, w in (("A", 14), ("B", 14), ("C", 14), ("D", 5), ("E", 16), ("F", 16),
                ("G", 16), ("H", 5), ("I", 14), ("J", 14), ("K", 14)):
     db.column_dimensions[col].width = w
-RED_S = PatternFill("solid", fgColor="E2001A")
-GREEN_S = PatternFill("solid", fgColor="2E7D32")
+RED_S = PatternFill("solid", fgColor="D2D2D2")     # Graustufen: alle drei Bänder gleiches Grau
+GREEN_S = PatternFill("solid", fgColor="D2D2D2")
 BODY_S = PatternFill("solid", fgColor="F7F7F7")
 AMB_H = PatternFill("solid", fgColor="FFE699")
 AMB_B = PatternFill("solid", fgColor="FBF3D9")
@@ -872,9 +882,9 @@ db["A3"].font = f(bold=True, color=NAVY, size=11)
 add_logo_corner(db, 11, height=34)
 
 # Spalten-Köpfe (fett)
-box(5, 1, 5, 3, "EINGABEN", fill=HDR_FILL, font=f(bold=True, color=WHITE, size=13), align="center", valign="center")
-box(5, 5, 5, 7, "BERECHNUNG", fill=RED_S, font=f(bold=True, color=WHITE, size=13), align="center", valign="center")
-box(5, 9, 5, 11, "ERGEBNISSE", fill=GREEN_S, font=f(bold=True, color=WHITE, size=13), align="center", valign="center")
+box(5, 1, 5, 3, "EINGABEN", fill=HDR_FILL, font=f(bold=True, color=BLACK, size=13), align="center", valign="center")
+box(5, 5, 5, 7, "BERECHNUNG", fill=RED_S, font=f(bold=True, color=BLACK, size=13), align="center", valign="center")
+box(5, 9, 5, 11, "ERGEBNISSE", fill=GREEN_S, font=f(bold=True, color=BLACK, size=13), align="center", valign="center")
 
 # Formelzeichen mit echten Tief-/Hochstellungen (für die Berechnungs-Spalte):
 # code 0 = normal, 1 = tiefgestellt, 2 = hochgestellt (Exponent)
@@ -963,8 +973,8 @@ db_col(9, 11, ergebnisse)
 NROW = max(len(eingaben), len(berechnung), len(ergebnisse))
 last = 6 + NROW - 1
 # Pfeile zwischen den Spalten
-box(6, 4, last, 4, "→", font=f(bold=True, color="E2001A", size=22), align="center", valign="center", border=False)
-box(6, 8, last, 8, "→", font=f(bold=True, color="E2001A", size=22), align="center", valign="center", border=False)
+box(6, 4, last, 4, "→", font=f(bold=True, color="777777", size=22), align="center", valign="center", border=False)
+box(6, 8, last, 8, "→", font=f(bold=True, color="777777", size=22), align="center", valign="center", border=False)
 db.row_dimensions[5].height = 20
 for r in range(6, last + 1): db.row_dimensions[r].height = 18
 
