@@ -188,6 +188,11 @@ CHANGELOG = [
         "Deckblatt: Bauart-A-Hinweis entfernt; steht stattdessen bei den Grundeinstellungen unter 'Gewähltes Rohrsystem'.",
         "Verifikation: Systemfaktor-Feld vergrößert (Spalte breiter, Beschriftung etwas kleiner) – der Wert ist jetzt vollständig lesbar.",
     ]),
+    ("0.33", "2026-06-17", [
+        "Neues, cleanes Druck-Design (Pilot auf dem Blatt 'Auslegung'): weißer Hintergrund mit agn-rotem Akzent (Kopflinie, Spaltenkopf-Unterstrich, Logo-Quadrat, roter Akzentbalken am Titel) statt dunkler Navy-Flächen.",
+        "Auslegung: Eingabespalten zart rot getönt statt kräftig gelb; weiche Haarlinien statt Vollgitter; Ampel-Farben dezenter (sanftes Grün/Rot).",
+        "Die übrigen Blätter sind noch im bisherigen Stil – das Design wird nach Freigabe übertragen.",
+    ]),
 ]
 VERSION = CHANGELOG[-1][0]
 AUTHOR = "dh"
@@ -210,6 +215,17 @@ thin = Side(style="thin", color="BFBFBF")
 BORDER = Border(left=thin, right=thin, top=thin, bottom=thin)
 CEN = Alignment(horizontal="center")
 LEFT = Alignment(horizontal="left")
+
+# ---- Redesign-Stil (agn-Rot, clean, druckfreundlich) – vorerst nur Auslegung ----
+AGN_RED, INK, MUTE, HAIR, RED_TINT = "E2001A", "1A1A1A", "8A8A82", "E0DED7", "FCF1F0"
+_hair = Side(style="thin", color=HAIR)
+_red_med = Side(style="medium", color=AGN_RED)
+HAIR_BORDER = Border(left=_hair, right=_hair, top=_hair, bottom=_hair)
+HEAD_UNDERLINE = Border(left=_hair, right=_hair, top=_hair, bottom=_red_med)
+RED_TINT_FILL = PatternFill("solid", fgColor=RED_TINT)
+WHITE_FILL = PatternFill("solid", fgColor="FFFFFF")
+AMPEL_GREEN = PatternFill(start_color="FFEAF3DE", end_color="FFEAF3DE", fill_type="solid")
+AMPEL_RED = PatternFill(start_color="FFFBE3E3", end_color="FFFBE3E3", fill_type="solid")
 
 def f(bold=False, color=BLACK, size=10, italic=False):
     return Font(name=FONT, bold=bold, color=color, size=size, italic=italic)
@@ -480,13 +496,15 @@ INPUT_STYLED = {7}   # spez. Heizlast: berechnet, aber optisch wie die Eingabesp
 for j, (name, sym, unit, width, fmt, color) in enumerate(columns, start=1):
     rl.column_dimensions[get_column_letter(j)].width = width
     is_inp = (color == BLUE) or (j in INPUT_STYLED)
-    fill = SUB_FILL if is_inp else HDR_FILL
-    tcol = NAVY if is_inp else WHITE
+    fill = RED_TINT_FILL if is_inp else WHITE_FILL   # Eingabespalten zart getönt, Rechenspalten weiß
     for row, txt, sz in ((NAME_ROW, name, 10), (SYM_ROW, sym, 13), (UNIT_ROW, unit, 9)):
-        val = fz(txt, color=tcol, bold=True, size=sz) if row == SYM_ROW else txt
+        tcol = MUTE if row == UNIT_ROW else INK       # Name/Symbol Anthrazit, Einheit grau
+        bold = row != UNIT_ROW
+        val = fz(txt, color=tcol, bold=bold, size=sz) if row == SYM_ROW else txt
         c = rl.cell(row=row, column=j, value=val)
-        c.fill = fill; c.font = f(bold=True, color=tcol, size=sz)
-        c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True); c.border = BORDER
+        c.fill = fill; c.font = f(bold=bold, color=tcol, size=sz)
+        c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        c.border = HEAD_UNDERLINE if row == UNIT_ROW else HAIR_BORDER   # agn-rote Linie unter dem Kopf
 rl.row_dimensions[NAME_ROW].height = 34
 rl.row_dimensions[SYM_ROW].height = 20
 rl.row_dimensions[UNIT_ROW].height = 14
@@ -536,14 +554,14 @@ for idx, r in enumerate(range(R0, R1 + 1)):
     for ji, j in enumerate(INPUT_COLS):
         c = rl.cell(row=r, column=j)
         if idx < len(examples): c.value = examples[idx][ji]
-        c.font = f(color=BLUE); c.fill = INPUT_FILL; c.border = BORDER
+        c.font = f(color=INK); c.fill = RED_TINT_FILL; c.border = HAIR_BORDER
         fmt = columns[j - 1][4]
         if fmt != "text": c.number_format = fmt
         c.alignment = Alignment(horizontal="left" if j in (1, 2, 3) else "center")
     for j in CALC_COLS:
         c = rl.cell(row=r, column=j, value=fr[j])
-        c.font = f(color=BLACK); c.border = BORDER
-        if j in INPUT_STYLED: c.fill = INPUT_FILL
+        c.font = f(color=INK); c.border = HAIR_BORDER
+        if j in INPUT_STYLED: c.fill = RED_TINT_FILL
         fmt = columns[j - 1][4]
         if fmt != "text": c.number_format = fmt
         c.alignment = CEN
@@ -556,8 +574,8 @@ rl.add_data_validation(dv_rw); dv_rw.add(f"I{R0}:I{R1}")
 
 def cf_pair(col, ok_formula, bad_formula):
     rng = f"{col}{R0}:{col}{R1}"
-    rl.conditional_formatting.add(rng, FormulaRule(formula=[bad_formula], fill=RED_FILL))
-    rl.conditional_formatting.add(rng, FormulaRule(formula=[ok_formula], fill=GREEN_FILL))
+    rl.conditional_formatting.add(rng, FormulaRule(formula=[bad_formula], fill=AMPEL_RED))
+    rl.conditional_formatting.add(rng, FormulaRule(formula=[ok_formula], fill=AMPEL_GREEN))
 cf_pair("R", f'AND($R{R0}<>"",$R{R0}<=$S{R0})', f'AND($R{R0}<>"",$R{R0}>$S{R0})')
 cf_pair("T", f'AND($T{R0}<>"",$F{R0}<>"",$T{R0}>=$F{R0})', f'AND($T{R0}<>"",$F{R0}<>"",$T{R0}<$F{R0})')
 cf_pair("V", f'AND($V{R0}<>"",$V{R0}>=1)', f'AND($V{R0}<>"",$V{R0}<1)')
@@ -567,7 +585,7 @@ cf_pair("AK", f'AND($AK{R0}<>"",$AK{R0}<={gWarn})', f'AND($AK{R0}<>"",$AK{R0}>{g
 cf_pair("AE", f'AND($AE{R0}<>"",$AE{R0}>={gvmin},$AE{R0}<={gvmax})',
         f'AND($AE{R0}<>"",OR($AE{R0}<{gvmin},$AE{R0}>{gvmax}))')
 rl.conditional_formatting.add(f"H{R0}:H{R1}", FormulaRule(
-    formula=[f'AND($H{R0}<>"",$D{R0}<>"",$H{R0}>$D{R0})'], fill=RED_FILL))
+    formula=[f'AND($H{R0}<>"",$D{R0}<>"",$H{R0}>$D{R0})'], fill=AMPEL_RED))
 # schlanker Standard: Zwischen-/Sekundärspalten ausblenden (jederzeit einblendbar)
 for col in ["N", "O", "P", "S", "U", "W", "X", "Y", "Z", "AA", "AC", "AF", "AG", "AH", "AI", "AJ"]:
     rl.column_dimensions[col].hidden = True
@@ -578,9 +596,24 @@ narrow = {"A": 13, "B": 11, "C": 16, "D": 8, "E": 11, "F": 9, "G": 10, "H": 9, "
 for col, w in narrow.items():
     rl.column_dimensions[col].width = w
 rl.row_dimensions[NAME_ROW].height = 46   # mehr Höhe, da schmale Spalten stärker umbrechen
-# Bearbeiter oben rechts: aus den Grundeinstellungen referenziert (nicht händisch, daher ungefärbt).
-# Breite Merge über sichtbare Spalten (AB..AK), damit der Eintrag nicht abgeschnitten wird.
-disp_header(rl, "Auslegung – Fußbodenheizung", NCOL, "AB2", "AB2:AK2")
+# ---- Kopf im Redesign (Variante A: weiß, agn-rote Linien) ----
+rl.row_dimensions[1].height = 32
+t = rl.cell(row=1, column=1, value="Fußbodenheizung – Auslegung")
+t.font = Font(name=FONT, bold=True, color=INK, size=16)
+t.alignment = Alignment(horizontal="left", vertical="center")
+t.border = Border(left=Side(style="thick", color=AGN_RED))   # roter Akzentbalken links
+add_logo_corner(rl, NCOL, height=36)
+meta = rl.cell(row=2, column=1, value=f'="Projekt-Nr.  "&{gPNr}&"        Projekt  "&{gPName}')
+meta.font = f(color=MUTE, size=11); meta.alignment = LEFT
+rl.merge_cells("AB2:AK2")
+bb = rl.cell(row=2, column=28, value=f'="Bearbeiter  "&{gBearb}')
+bb.font = f(italic=True, color=MUTE, size=9)
+bb.alignment = Alignment(horizontal="right", vertical="center")
+# agn-rote Briefkopflinie als Oberkante der (leeren) Zeile 3 → durchgehend, keine Merge-Probleme
+_red_line = Border(top=Side(style="medium", color=AGN_RED))
+for col in range(1, NCOL + 1):
+    rl.cell(row=3, column=col).border = _red_line
+rl.row_dimensions[3].height = 8
 setup_print(rl, f"A1:{LASTCOL}{R1}", titles="1:6", orientation="landscape", paper=9)
 rl.page_margins.left = rl.page_margins.right = 0.2   # schmalere Ränder → mehr Platz auf A4
 rl.page_margins.top = rl.page_margins.bottom = 0.3
