@@ -30,6 +30,12 @@ CHANGELOG = [
         "Konstanten neu geordnet: jede Tabelle durch weiße Leerzellen/-spalten optisch getrennt; passt auf eine A4-Quer-Seite.",
         "Verifikation/Hinweise sprachlich bereinigt (kein Verweis mehr auf einen Systemfaktor; Faktor-Werte können durch die Norm-Werte ersetzt werden).",
     ]),
+    ("0.3", "2026-06-17", [
+        "Diese EN-1264-Mappe ist jetzt die Hauptvariante; die vereinfachte Mappe wurde nach 'archiv/' verschoben.",
+        "Auslegung im Graustufen-Design: Schrift durchgehend schwarz (auch Einheiten), Eingabe-/editierbare Zellen grau hinterlegt; Farbe nur noch im Logo.",
+        "Bewertung als Symbol statt Farbe: neue Spalte 'Status' mit ✓ (alle Prüfungen ok) bzw. ! (Warnung) – auch im Schwarz-Weiß-Druck erkennbar; rote/grüne Zellhintergründe entfallen.",
+        "Zebra-Streifen (jede zweite sichtbare Zeile) über bedingte Formatierung mit SUBTOTAL (filterfest); neue Filterfunktion (AutoFilter), Filtern trotz Blattschutz möglich.",
+    ]),
 ]
 VERSION = CHANGELOG[-1][0]
 AUTHOR = "dh"
@@ -52,6 +58,19 @@ thin = Side(style="thin", color="BFBFBF")
 BORDER = Border(left=thin, right=thin, top=thin, bottom=thin)
 CEN = Alignment(horizontal="center")
 LEFT = Alignment(horizontal="left")
+
+# ---- Graustufen-Design (Schrift schwarz; Farbe nur Logo; Bewertung als ✓/!-Symbol) ----
+INK = "000000"
+GREY_HDR = "ECECEC"     # Eingabespalten (Kopf + Datenbasis)
+GREY_HAIR = "C9C9C9"    # Haarlinien
+_hair = Side(style="thin", color=GREY_HAIR)
+_blk_med = Side(style="medium", color=INK)
+HAIR_BORDER = Border(left=_hair, right=_hair, top=_hair, bottom=_hair)
+HEAD_UNDERLINE = Border(left=_hair, right=_hair, top=_hair, bottom=_blk_med)   # schwarze Linie unter dem Kopf
+INPUT_GREY_FILL = PatternFill("solid", fgColor=GREY_HDR)
+WHITE_FILL = PatternFill("solid", fgColor="FFFFFF")
+ZEBRA_CALC = PatternFill(start_color="FFF5F5F5", end_color="FFF5F5F5", fill_type="solid")   # Streifen Rechenspalten
+ZEBRA_INPUT = PatternFill(start_color="FFE0E0E0", end_color="FFE0E0E0", fill_type="solid")  # Streifen Eingabespalten
 
 def f(bold=False, color=BLACK, size=10, italic=False):
     return Font(name=FONT, bold=bold, color=color, size=size, italic=italic)
@@ -321,7 +340,8 @@ columns = [
     ("Δp Reibung", "Δp_R", "[Pa]", 11, '#,##0" Pa"', BLACK),           # AI
     ("spez. Druckverlust", "R", "[Pa/m]", 12, '#,##0" Pa/m"', BLACK),  # AJ
     ("Druck-\nverlust", "Δp", "[Pa]", 12, '#,##0" Pa"', BLACK),        # AK
-]  # A..AK = 37
+    ("Status", "", "", 8, "text", BLACK),                              # AL  (✓ = alle Prüfungen ok, ! = Warnung)
+]  # A..AL = 38
 NCOL = len(columns)
 LASTCOL = get_column_letter(NCOL)
 INPUT_COLS = [j for j, c in enumerate(columns, start=1) if c[5] == BLUE]
@@ -330,13 +350,14 @@ INPUT_STYLED = {7}   # spez. Heizlast: berechnet, aber optisch wie die Eingabesp
 for j, (name, sym, unit, width, fmt, color) in enumerate(columns, start=1):
     rl.column_dimensions[get_column_letter(j)].width = width
     is_inp = (color == BLUE) or (j in INPUT_STYLED)
-    fill = SUB_FILL if is_inp else HDR_FILL
-    tcol = NAVY if is_inp else WHITE
+    fill = INPUT_GREY_FILL if is_inp else WHITE_FILL   # Eingabespalten grau, Rechenspalten weiß
     for row, txt, sz in ((NAME_ROW, name, 10), (SYM_ROW, sym, 13), (UNIT_ROW, unit, 9)):
-        val = fz(txt, color=tcol, bold=True, size=sz) if row == SYM_ROW else txt
+        bold = row != UNIT_ROW                          # Einheiten nicht fett, aber schwarz
+        val = fz(txt, color=INK, bold=bold, size=sz) if row == SYM_ROW else txt
         c = rl.cell(row=row, column=j, value=val)
-        c.fill = fill; c.font = f(bold=True, color=tcol, size=sz)
-        c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True); c.border = BORDER
+        c.fill = fill; c.font = f(bold=bold, color=INK, size=sz)
+        c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        c.border = HEAD_UNDERLINE if row == UNIT_ROW else HAIR_BORDER   # schwarze Linie unter dem Kopf
 rl.row_dimensions[NAME_ROW].height = 34
 rl.row_dimensions[SYM_ROW].height = 20
 rl.row_dimensions[UNIT_ROW].height = 14
@@ -369,6 +390,15 @@ def F(r):
         35: f'=IF(OR($B{r}="",$AH{r}="",$AB{r}=""),"",IFERROR($AH{r}*($AB{r}/{gdim})*({grho}/2)*$AE{r}^2,""))',
         36: f'=IF(OR($B{r}="",$AI{r}="",$AB{r}=""),"",IFERROR($AI{r}/$AB{r},""))',
         37: f'=IF(OR($B{r}="",$AI{r}=""),"",$AI{r}*(1+{gzus})+{gVarm})',
+        38: (f'=IF($B{r}="","",IF(AND('                                  # ✓ wenn alle Prüfungen ok
+             f'IF($R{r}="",TRUE,$R{r}<=$S{r}),'                           # Oberflächentemperatur
+             f'IF(OR($T{r}="",$F{r}=""),TRUE,$T{r}>=$F{r}),'             # Heizlast gedeckt
+             f'IF(OR($H{r}="",$D{r}=""),TRUE,$H{r}<=$D{r}),'            # aktivierbare Fläche
+             f'IF($AB{r}="",TRUE,$AB{r}<={gMax}),'                       # Kreislänge
+             f'IF($AD{r}="",TRUE,$AD{r}<={gVdot}),'                      # Volumenstrom
+             f'IF($AK{r}="",TRUE,$AK{r}<={gWarn}),'                      # Druckverlust
+             f'IF($AE{r}="",TRUE,AND($AE{r}>={gvmin},$AE{r}<={gvmax}))'  # Geschwindigkeit
+             f'),"✓","!"))'),
     }
 
 examples = [   # Heizlast so gewählt, dass spez. Heizlast (Q/Raumfläche) <= 50 W/m², bunte Mischung
@@ -387,14 +417,15 @@ for idx, r in enumerate(range(R0, R1 + 1)):
     for ji, j in enumerate(INPUT_COLS):
         c = rl.cell(row=r, column=j)
         if idx < len(examples): c.value = examples[idx][ji]
-        c.font = f(color=BLUE); c.fill = INPUT_FILL; c.border = BORDER
+        c.font = f(color=INK); c.fill = INPUT_GREY_FILL; c.border = HAIR_BORDER
         fmt = columns[j - 1][4]
         if fmt != "text": c.number_format = fmt
         c.alignment = Alignment(horizontal="left" if j in (1, 2, 3) else "center")
     for j in CALC_COLS:
         c = rl.cell(row=r, column=j, value=fr[j])
-        c.font = f(color=BLACK); c.border = BORDER
-        if j in INPUT_STYLED: c.fill = INPUT_FILL
+        c.font = f(color=INK); c.border = HAIR_BORDER
+        if j in INPUT_STYLED: c.fill = INPUT_GREY_FILL
+        if j == NCOL: c.font = f(bold=True, color=INK, size=13)   # Status-Symbol ✓/! groß
         fmt = columns[j - 1][4]
         if fmt != "text": c.number_format = fmt
         c.alignment = CEN
@@ -405,33 +436,42 @@ rl.add_data_validation(dv_zone); dv_zone.add(f"M{R0}:M{R1}")
 dv_rw = DataValidation(type="list", formula1=f"={RW_VAL_LIST}", allow_blank=True, showErrorMessage=False)
 rl.add_data_validation(dv_rw); dv_rw.add(f"I{R0}:I{R1}")
 
-def cf_pair(col, ok_formula, bad_formula):
-    rng = f"{col}{R0}:{col}{R1}"
-    rl.conditional_formatting.add(rng, FormulaRule(formula=[bad_formula], fill=RED_FILL))
-    rl.conditional_formatting.add(rng, FormulaRule(formula=[ok_formula], fill=GREEN_FILL))
-cf_pair("R", f'AND($R{R0}<>"",$R{R0}<=$S{R0})', f'AND($R{R0}<>"",$R{R0}>$S{R0})')
-cf_pair("T", f'AND($T{R0}<>"",$F{R0}<>"",$T{R0}>=$F{R0})', f'AND($T{R0}<>"",$F{R0}<>"",$T{R0}<$F{R0})')
-cf_pair("V", f'AND($V{R0}<>"",$V{R0}>=1)', f'AND($V{R0}<>"",$V{R0}<1)')
-cf_pair("AB", f'AND($AB{R0}<>"",$AB{R0}<={gMax})', f'AND($AB{R0}<>"",$AB{R0}>{gMax})')
-cf_pair("AD", f'AND($AD{R0}<>"",$AD{R0}<={gVdot})', f'AND($AD{R0}<>"",$AD{R0}>{gVdot})')
-cf_pair("AK", f'AND($AK{R0}<>"",$AK{R0}<={gWarn})', f'AND($AK{R0}<>"",$AK{R0}>{gWarn})')
-cf_pair("AE", f'AND($AE{R0}<>"",$AE{R0}>={gvmin},$AE{R0}<={gvmax})',
-        f'AND($AE{R0}<>"",OR($AE{R0}<{gvmin},$AE{R0}>{gvmax}))')
-rl.conditional_formatting.add(f"H{R0}:H{R1}", FormulaRule(
-    formula=[f'AND($H{R0}<>"",$D{R0}<>"",$H{R0}>$D{R0})'], fill=RED_FILL))
+# Bewertung erfolgt jetzt über die Status-Spalte (✓ / !) – keine farbigen Zellhintergründe mehr
+# (gut im Schwarz-Weiß-Druck erkennbar). Stattdessen Zebra-Streifen für die Lesbarkeit:
+# filterfest via SUBTOTAL (zählt nur sichtbare Zeilen → bleibt beim Filtern korrekt).
+_zform = f'AND($B{R0}<>"",MOD(SUBTOTAL(103,$B${R0}:$B{R0}),2)=0)'
+_inp_z = sorted(set(INPUT_COLS) | INPUT_STYLED)
+_calc_z = sorted(set(CALC_COLS) - INPUT_STYLED)
+_zrange = lambda cols: " ".join(f"{get_column_letter(j)}{R0}:{get_column_letter(j)}{R1}" for j in cols)
+rl.conditional_formatting.add(_zrange(_inp_z), FormulaRule(formula=[_zform], fill=ZEBRA_INPUT))
+rl.conditional_formatting.add(_zrange(_calc_z), FormulaRule(formula=[_zform], fill=ZEBRA_CALC))
 # schlanker Standard: Zwischen-/Sekundärspalten ausblenden (jederzeit einblendbar)
 for col in ["N", "O", "P", "S", "U", "W", "X", "Y", "Z", "AA", "AC", "AF", "AG", "AH", "AI", "AJ"]:
     rl.column_dimensions[col].hidden = True
 # sichtbare Spalten schmaler, damit das Blatt auf A4-Querformat passt
 narrow = {"A": 13, "B": 11, "C": 16, "D": 8, "E": 11, "F": 9, "G": 10, "H": 9, "I": 11,
           "J": 9, "K": 8, "L": 11, "M": 6, "Q": 11, "R": 11, "T": 9, "V": 8,
-          "AB": 9, "AD": 10, "AE": 10, "AK": 10}
+          "AB": 9, "AD": 10, "AE": 10, "AK": 10, "AL": 7}
 for col, w in narrow.items():
     rl.column_dimensions[col].width = w
 rl.row_dimensions[NAME_ROW].height = 46   # mehr Höhe, da schmale Spalten stärker umbrechen
-# Bearbeiter oben rechts: aus den Grundeinstellungen referenziert (nicht händisch, daher ungefärbt).
-# Breite Merge über sichtbare Spalten (AB..AK), damit der Eintrag nicht abgeschnitten wird.
-disp_header(rl, "Auslegung – Fußbodenheizung (DIN EN 1264)", NCOL, "AB2", "AB2:AK2")
+# ---- Kopf (Graustufen, Schrift schwarz; Farbe nur über das Logo) ----
+rl.row_dimensions[1].height = 32
+t = rl.cell(row=1, column=1, value="Fußbodenheizung – Auslegung (DIN EN 1264)")
+t.font = Font(name=FONT, bold=True, color=INK, size=16)
+t.alignment = Alignment(horizontal="left", vertical="center")
+add_logo_corner(rl, NCOL, height=36)
+meta = rl.cell(row=2, column=1, value=f'="Projekt-Nr.  "&{gPNr}&"        Projekt  "&{gPName}')
+meta.font = f(color=INK, size=11); meta.alignment = LEFT
+rl.merge_cells(f"AB2:{LASTCOL}2")
+bb = rl.cell(row=2, column=28, value=f'="Bearbeiter  "&{gBearb}')
+bb.font = f(italic=True, color=INK, size=9)
+bb.alignment = Alignment(horizontal="right", vertical="center")
+_hdr_line = Border(top=Side(style="thin", color=INK))   # dünne schwarze Briefkopflinie
+for col in range(1, NCOL + 1):
+    rl.cell(row=3, column=col).border = _hdr_line
+rl.row_dimensions[3].height = 8
+rl.auto_filter.ref = f"A{UNIT_ROW}:{LASTCOL}{R1}"   # Filterfunktion auf der Einheitenzeile
 setup_print(rl, f"A1:{LASTCOL}{R1}", titles="1:6", orientation="landscape", paper=9)
 rl.page_margins.left = rl.page_margins.right = 0.2   # schmalere Ränder → mehr Platz auf A4
 rl.page_margins.top = rl.page_margins.bottom = 0.3
@@ -1054,6 +1094,9 @@ def protect_formulas(ws):
     ws.protection.formatColumns = False
 for ws in wb.worksheets:
     protect_formulas(ws)
+# Auslegung: Filtern trotz Blattschutz zulassen (Sortieren bleibt durch gesperrte Formeln eingeschränkt)
+rl.protection.autoFilter = False
+rl.protection.sort = False
 
 # =====================================================================
 wb.properties.version = VERSION
