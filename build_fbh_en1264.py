@@ -41,6 +41,11 @@ CHANGELOG = [
         "Auslegung: Status-Spalte (✓/!) wieder entfernt; Bewertung jetzt über die Schriftfarbe – leicht grün = im Rahmen, leicht rot = Grenzwert überschritten (auch in Kontrolle und Verifikation).",
         "Tabellenkopf einheitlich in kräftigerem Grau; editierbare Zellen in hellerem Grau.",
     ]),
+    ("0.5", "2026-06-17", [
+        "Färbung getauscht: berechnete Zellen jetzt mit leichtem grauen Hintergrund, Eingabezellen weiß (alle Blätter).",
+        "Tabellenköpfe durchgehend einheitlich grau (auch Verifikation) – keine weiße Schrift mehr, kein Unterschied zwischen Eingabe- und Rechenspalten im Kopf.",
+        "Bewertungs-Schriftfarben kräftiger (grün/rot); Zebra-Streifen gelten auch für die Bewertungsspalten (rot/grüner Text).",
+    ]),
 ]
 VERSION = CHANGELOG[-1][0]
 AUTHOR = "dh"
@@ -55,13 +60,14 @@ EMU = 9525
 # Graustufen-Palette (Schrift schwarz; Farbe nur Logo; Bewertung über Schriftfarbe grün/rot)
 # BLUE bleibt als interne Spalten-Markierung (Eingabe vs. Berechnung) erhalten, wird aber nicht mehr als Textfarbe genutzt.
 BLUE, BLACK, WHITE, GREY, NAVY = "0000FF", "000000", "FFFFFF", "808080", "000000"
-HDR_FILL = PatternFill("solid", fgColor="D2D2D2")     # Tabellenkopf / Abschnittsbalken – kräftigeres Grau
+HDR_FILL = PatternFill("solid", fgColor="D2D2D2")     # Tabellenkopf / Abschnittsbalken – einheitlich, kräftigeres Grau
 SUB_FILL = PatternFill("solid", fgColor="E6E6E6")
-INPUT_FILL = PatternFill("solid", fgColor="F2F2F2")   # editierbare Zellen – helles Grau
+INPUT_FILL = PatternFill("solid", fgColor="FFFFFF")   # EINGABE-/editierbare Zellen: weiß
+CALC_FILL = PatternFill("solid", fgColor="ECECEC")    # BERECHNETE Zellen: leichtes Grau
 ACCENT_FILL = PatternFill("solid", fgColor="E6E6E6")
 RED_FILL = PatternFill(start_color="FFFFC7CE", end_color="FFFFC7CE", fill_type="solid")
 GREEN_FILL = PatternFill(start_color="FFC6EFCE", end_color="FFC6EFCE", fill_type="solid")
-EVAL_OK, EVAL_WARN = "2E7D32", "C0392B"   # Bewertung als Schriftfarbe: leicht grün ok / leicht rot Grenzwert
+EVAL_OK, EVAL_WARN = "1E8E1E", "D32F2F"   # Bewertung als Schriftfarbe (kräftiger): grün ok / rot Grenzwert
 thin = Side(style="thin", color="C9C9C9")
 BORDER = Border(left=thin, right=thin, top=thin, bottom=thin)
 CEN = Alignment(horizontal="center")
@@ -74,10 +80,9 @@ _hair = Side(style="thin", color=GREY_HAIR)
 _blk_med = Side(style="medium", color=INK)
 HAIR_BORDER = Border(left=_hair, right=_hair, top=_hair, bottom=_hair)
 HEAD_UNDERLINE = Border(left=_hair, right=_hair, top=_hair, bottom=_blk_med)   # schwarze Linie unter dem Kopf
-INPUT_GREY_FILL = INPUT_FILL   # editierbare Zellen (helles Grau, global)
 WHITE_FILL = PatternFill("solid", fgColor="FFFFFF")
-ZEBRA_CALC = PatternFill(start_color="FFF6F6F6", end_color="FFF6F6F6", fill_type="solid")   # Streifen Rechenspalten
-ZEBRA_INPUT = PatternFill(start_color="FFE4E4E4", end_color="FFE4E4E4", fill_type="solid")  # Streifen Eingabespalten
+ZEBRA_INPUT = PatternFill(start_color="FFF3F3F3", end_color="FFF3F3F3", fill_type="solid")   # Streifen weiße Eingabespalten
+ZEBRA_CALC = PatternFill(start_color="FFE0E0E0", end_color="FFE0E0E0", fill_type="solid")    # Streifen graue Rechenspalten
 
 def f(bold=False, color=BLACK, size=10, italic=False):
     return Font(name=FONT, bold=bold, color=color, size=size, italic=italic)
@@ -230,7 +235,7 @@ def param(row, label, value, unit, note, fmt, cL):
     g.merge_cells(start_row=row, start_column=cL + 4, end_row=row, end_column=cL + 5)
 def calcrow(row, label, formula, unit, fmt, cL, note=""):
     g.cell(row=row, column=cL, value=fz(label)).font = f(); g.merge_cells(start_row=row, start_column=cL, end_row=row, end_column=cL + 1)
-    v = g.cell(row=row, column=cL + 2, value=formula); v.font = f(bold=True); v.alignment = CEN; v.border = BORDER; v.number_format = fmt
+    v = g.cell(row=row, column=cL + 2, value=formula); v.font = f(bold=True); v.alignment = CEN; v.border = BORDER; v.number_format = fmt; v.fill = CALC_FILL
     g.cell(row=row, column=cL + 3, value=unit).font = f(color=GREY)
     if note:
         g.cell(row=row, column=cL + 4, value=note).font = f(italic=True, color=GREY, size=9); g.merge_cells(start_row=row, start_column=cL + 4, end_row=row, end_column=cL + 5)
@@ -414,14 +419,13 @@ for idx, r in enumerate(range(R0, R1 + 1)):
     for ji, j in enumerate(INPUT_COLS):
         c = rl.cell(row=r, column=j)
         if idx < len(examples): c.value = examples[idx][ji]
-        c.font = f(color=INK); c.fill = INPUT_GREY_FILL; c.border = HAIR_BORDER
+        c.font = f(color=INK); c.fill = INPUT_FILL; c.border = HAIR_BORDER   # Eingabe: weiß
         fmt = columns[j - 1][4]
         if fmt != "text": c.number_format = fmt
         c.alignment = Alignment(horizontal="left" if j in (1, 2, 3) else "center")
     for j in CALC_COLS:
         c = rl.cell(row=r, column=j, value=fr[j])
-        c.font = f(color=INK); c.border = HAIR_BORDER
-        if j in INPUT_STYLED: c.fill = INPUT_GREY_FILL
+        c.font = f(color=INK); c.fill = CALC_FILL; c.border = HAIR_BORDER   # Berechnet: leichtes Grau
         fmt = columns[j - 1][4]
         if fmt != "text": c.number_format = fmt
         c.alignment = CEN
@@ -450,8 +454,8 @@ rl.conditional_formatting.add(f"H{R0}:H{R1}", FormulaRule(
     formula=[f'AND($H{R0}<>"",$D{R0}<>"",$H{R0}>$D{R0})'], font=Font(color=EVAL_WARN)))
 # Zebra-Streifen (filterfest via SUBTOTAL: zählt nur sichtbare Zeilen) für die Lesbarkeit.
 _zform = f'AND($B{R0}<>"",MOD(SUBTOTAL(103,$B${R0}:$B{R0}),2)=0)'
-_inp_z = sorted(set(INPUT_COLS) | INPUT_STYLED)
-_calc_z = sorted(set(CALC_COLS) - INPUT_STYLED)
+_inp_z = sorted(INPUT_COLS)                # weiße Eingabespalten
+_calc_z = sorted(CALC_COLS)                # graue Rechenspalten (inkl. Bewertungs-/rot-grün-Spalten)
 _zrange = lambda cols: " ".join(f"{get_column_letter(j)}{R0}:{get_column_letter(j)}{R1}" for j in cols)
 rl.conditional_formatting.add(_zrange(_inp_z), FormulaRule(formula=[_zform], fill=ZEBRA_INPUT))
 rl.conditional_formatting.add(_zrange(_calc_z), FormulaRule(formula=[_zform], fill=ZEBRA_CALC))
@@ -497,7 +501,7 @@ AUS = "'Auslegung'!"
 def ovrow(r, label, formula, unit, fmt='#,##0', note=""):
     ov.cell(row=r, column=1, value=label).font = f()
     c = ov.cell(row=r, column=2, value=formula); c.font = f(bold=True); c.number_format = fmt
-    c.alignment = CEN; c.border = BORDER
+    c.alignment = CEN; c.border = BORDER; c.fill = CALC_FILL   # berechnet: grau
     ov.cell(row=r, column=3, value=unit).font = f(color=GREY)
     if note: ov.cell(row=r, column=4, value=note).font = f(italic=True, color=GREY, size=9)
 c = ov.cell(row=5, column=1, value="Summen / Kennzahlen"); c.font = f(bold=True, color=BLACK); c.fill = HDR_FILL
@@ -547,7 +551,7 @@ N_HKV = 50
 for i in range(N_HKV):
     r = 5 + i
     af = (f'=IFERROR(INDEX({Aaus},MATCH(0,COUNTIF($A$4:$A{r-1},{Aaus})+IF({Aaus}="",1,0),0)),"")')
-    cell = hv.cell(row=r, column=1); cell.value = ArrayFormula(f"A{r}", af); cell.font = f(); cell.alignment = LEFT; cell.border = BORDER
+    cell = hv.cell(row=r, column=1); cell.value = ArrayFormula(f"A{r}", af); cell.font = f(); cell.alignment = LEFT; cell.border = BORDER; cell.fill = CALC_FILL
     b = hv.cell(row=r, column=2, value=f'=IF($A{r}="","",SUMIF({Aaus},$A{r},{AUS}$K${R0}:$K${R1}))')
     sp = hv.cell(row=r, column=3, value=f"=IF($A{r}=\"\",\"\",{gV}-{gR})")   # globale Spreizung (überall gleich)
     c = hv.cell(row=r, column=4, value=f'=IF($A{r}="","",SUMIF({Aaus},$A{r},{AUS}$X${R0}:$X${R1}))')
@@ -556,10 +560,10 @@ for i in range(N_HKV):
     p = hv.cell(row=r, column=7)
     p.value = ArrayFormula(f"G{r}", f'=IF($A{r}="","",MAX(IF({Aaus}=$A{r},{AUS}$AK${R0}:$AK${R1})))')
     for cc, fmt in ((b, '0'), (sp, '0.0" K"'), (c, '#,##0" W"'), (d, '#,##0" kg/h"'), (e, '#,##0" l/h"'), (p, '#,##0" Pa"')):
-        cc.font = f(); cc.alignment = CEN; cc.number_format = fmt; cc.border = BORDER
+        cc.font = f(); cc.alignment = CEN; cc.number_format = fmt; cc.border = BORDER; cc.fill = CALC_FILL
     rm = hv.cell(row=r, column=8)
     rm.value = ArrayFormula(f"H{r}", f'=IF($A{r}="","",_xlfn.TEXTJOIN(", ",TRUE,IF({Aaus}=$A{r},{AUS}$B${R0}:$B${R1},"")))')
-    rm.font = f(); rm.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True); rm.border = BORDER
+    rm.font = f(); rm.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True); rm.border = BORDER; rm.fill = CALC_FILL
 hv.cell(row=5 + N_HKV + 1, column=1,
         value="Baut sich automatisch aus der Auslegung auf (Array-Formeln, Excel & LibreOffice).").font = f(italic=True, color=GREY, size=9)
 disp_header(hv, "Heizkreisverteiler – Übersicht je HKV", 8, "F2", "F2:G2")
@@ -586,10 +590,9 @@ vhdr = ["Verlege-\nabstand [mm]", "θV\n[°C]", "θR\n[°C]", "θi\n[°C]", "R-W
         "ΔθH\n[K]", "a_B\n[-]", "a_T\n[-]"]
 VT = 8
 for j, h in enumerate(vhdr, start=1):
-    inp = j <= 6
     c = vf.cell(row=VT, column=j, value=h)
-    c.fill = SUB_FILL if inp else HDR_FILL
-    c.font = f(bold=True, color=(NAVY if inp else WHITE))
+    c.fill = HDR_FILL                       # Kopf einheitlich grau (egal ob Eingabe- oder Rechenspalte)
+    c.font = f(bold=True, color=BLACK)       # keine weiße Schrift
     c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True); c.border = BORDER
 vf.row_dimensions[VT].height = 48
 V0 = VT + 1
@@ -628,7 +631,8 @@ for i, pt in enumerate(vpts):
         9:  (f'=IF(OR($A{r}="",$F{r}=""),"",IFERROR(($F{r}-$G{r})/$G{r},""))', '0.0%'),
     }
     for col, (formula, fmt) in forms.items():
-        cc = vf.cell(row=r, column=col, value=formula); cc.font = f(); cc.alignment = CEN; cc.number_format = fmt; cc.border = BORDER
+        cc = vf.cell(row=r, column=col, value=formula); cc.font = f(); cc.fill = CALC_FILL   # berechnet: grau
+        cc.alignment = CEN; cc.number_format = fmt; cc.border = BORDER
 vf.conditional_formatting.add(f"I{V0}:I{V1}", FormulaRule(formula=[f'AND($I{V0}<>"",ABS($I{V0})>0.05)'], font=Font(color=EVAL_WARN)))
 vf.conditional_formatting.add(f"I{V0}:I{V1}", FormulaRule(formula=[f'AND($I{V0}<>"",ABS($I{V0})<=0.05)'], font=Font(color=EVAL_OK)))
 # Summenzeile: Gesamtabweichung über alle Punkte (zeigt die Güte des EN-1264-Modells)
@@ -770,8 +774,8 @@ for i, (lab, val, unit, fmt, calc) in enumerate(en_par):
     r = 13 + i
     lc = kt.cell(row=r, column=1, value=fz(lab)); lc.font = f(); kt.merge_cells(start_row=r, start_column=1, end_row=r, end_column=2)
     vc = kt.cell(row=r, column=3, value=val); vc.alignment = CEN; vc.border = BORDER; vc.number_format = fmt
-    vc.font = f(bold=True) if calc else f(bold=True, color=BLACK)
-    if not calc: vc.fill = INPUT_FILL
+    vc.font = f(bold=True, color=BLACK)
+    vc.fill = CALC_FILL if calc else INPUT_FILL   # berechnet grau / Eingabe weiß
     kt.cell(row=r, column=4, value=unit).font = f(color=GREY)
 # (Zeile 18 bleibt weiß = Trennung)
 
@@ -787,7 +791,7 @@ for i in range(8):
     for col in range(1, 6):
         cell = kt.cell(row=r, column=col); cell.border = BORDER
         if col == 4:
-            cell.value = f'=IF(B{r}="","",B{r}-2*C{r})'; cell.font = f(color=BLACK); cell.number_format = '0.0'; cell.alignment = CEN
+            cell.value = f'=IF(B{r}="","",B{r}-2*C{r})'; cell.font = f(color=BLACK); cell.number_format = '0.0'; cell.alignment = CEN; cell.fill = CALC_FILL
         else:
             cell.font = f(color=BLACK); cell.fill = INPUT_FILL
             cell.alignment = Alignment(horizontal="left" if col == 1 else "center")
