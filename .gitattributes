@@ -1,0 +1,10 @@
+# Einheitliche Zeilenenden (LF) für Textdateien – verhindert Windows/Linux-Diff-Rauschen
+* text=auto eol=lf
+*.py text eol=lf
+*.md text eol=lf
+# Binärdateien nicht anfassen
+*.png binary
+*.xlsx binary
+*.xlsm binary
+*.pdf binary
+*.zip binary
