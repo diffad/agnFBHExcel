@@ -46,6 +46,10 @@ CHANGELOG = [
         "Tabellenköpfe durchgehend einheitlich grau (auch Verifikation) – keine weiße Schrift mehr, kein Unterschied zwischen Eingabe- und Rechenspalten im Kopf.",
         "Bewertungs-Schriftfarben kräftiger (grün/rot); Zebra-Streifen gelten auch für die Bewertungsspalten (rot/grüner Text).",
     ]),
+    ("0.6", "2026-06-17", [
+        "Zebra-Streifen jetzt auch auf den Blättern HKV, Verifikation und Konstanten.",
+        "Auslegung: Bewertungsspalten (rot/grüner Text) erhalten nun tatsächlich das Zebra – Schriftfarbe und Streifen werden in einer kombinierten Regel gesetzt (vorher hat die Schriftfarbe-Regel den Streifen verdrängt).",
+    ]),
 ]
 VERSION = CHANGELOG[-1][0]
 AUTHOR = "dh"
@@ -83,6 +87,11 @@ HEAD_UNDERLINE = Border(left=_hair, right=_hair, top=_hair, bottom=_blk_med)   #
 WHITE_FILL = PatternFill("solid", fgColor="FFFFFF")
 ZEBRA_INPUT = PatternFill(start_color="FFF3F3F3", end_color="FFF3F3F3", fill_type="solid")   # Streifen weiße Eingabespalten
 ZEBRA_CALC = PatternFill(start_color="FFE0E0E0", end_color="FFE0E0E0", fill_type="solid")    # Streifen graue Rechenspalten
+
+def zebra(ws, rng, keycol, top, fill):
+    """Filterfestes Zebra (jede zweite SICHTBARE Zeile) auf rng; Schlüsselspalte keycol ab Zeile top."""
+    form = f'AND(${keycol}{top}<>"",MOD(SUBTOTAL(103,${keycol}${top}:${keycol}{top}),2)=0)'
+    ws.conditional_formatting.add(rng, FormulaRule(formula=[form], fill=fill))
 
 def f(bold=False, color=BLACK, size=10, italic=False):
     return Font(name=FONT, bold=bold, color=color, size=size, italic=italic)
@@ -436,29 +445,32 @@ rl.add_data_validation(dv_zone); dv_zone.add(f"M{R0}:M{R1}")
 dv_rw = DataValidation(type="list", formula1=f"={RW_VAL_LIST}", allow_blank=True, showErrorMessage=False)
 rl.add_data_validation(dv_rw); dv_rw.add(f"I{R0}:I{R1}")
 
-# Bewertung über die SCHRIFTFARBE: leicht grün = ok, leicht rot = Grenzwert überschritten.
-# (Keine farbigen Zellhintergründe; Werte bleiben sonst schwarz.)
-def cf_font(col, ok_formula, bad_formula):
+# Bewertung über die SCHRIFTFARBE (grün = ok, rot = Grenzwert) – KOMBINIERT mit dem Zebra-Streifen,
+# damit beide Formate gemeinsam wirken (LibreOffice/Excel wendet sonst je Zelle nur die oberste Regel an).
+_odd = f'MOD(SUBTOTAL(103,$B${R0}:$B{R0}),2)=0'   # ungerade sichtbare Zeile → Zebra
+def cf_eval(col, ok_formula, bad_formula):
     rng = f"{col}{R0}:{col}{R1}"
+    rl.conditional_formatting.add(rng, FormulaRule(formula=[f'AND({bad_formula},{_odd})'], font=Font(color=EVAL_WARN), fill=ZEBRA_CALC))
+    rl.conditional_formatting.add(rng, FormulaRule(formula=[f'AND({ok_formula},{_odd})'], font=Font(color=EVAL_OK), fill=ZEBRA_CALC))
     rl.conditional_formatting.add(rng, FormulaRule(formula=[bad_formula], font=Font(color=EVAL_WARN)))
     rl.conditional_formatting.add(rng, FormulaRule(formula=[ok_formula], font=Font(color=EVAL_OK)))
-cf_font("R", f'AND($R{R0}<>"",$R{R0}<=$S{R0})', f'AND($R{R0}<>"",$R{R0}>$S{R0})')
-cf_font("T", f'AND($T{R0}<>"",$F{R0}<>"",$T{R0}>=$F{R0})', f'AND($T{R0}<>"",$F{R0}<>"",$T{R0}<$F{R0})')
-cf_font("V", f'AND($V{R0}<>"",$V{R0}>=1)', f'AND($V{R0}<>"",$V{R0}<1)')
-cf_font("AB", f'AND($AB{R0}<>"",$AB{R0}<={gMax})', f'AND($AB{R0}<>"",$AB{R0}>{gMax})')
-cf_font("AD", f'AND($AD{R0}<>"",$AD{R0}<={gVdot})', f'AND($AD{R0}<>"",$AD{R0}>{gVdot})')
-cf_font("AK", f'AND($AK{R0}<>"",$AK{R0}<={gWarn})', f'AND($AK{R0}<>"",$AK{R0}>{gWarn})')
-cf_font("AE", f'AND($AE{R0}<>"",$AE{R0}>={gvmin},$AE{R0}<={gvmax})',
+cf_eval("R", f'AND($R{R0}<>"",$R{R0}<=$S{R0})', f'AND($R{R0}<>"",$R{R0}>$S{R0})')
+cf_eval("T", f'AND($T{R0}<>"",$F{R0}<>"",$T{R0}>=$F{R0})', f'AND($T{R0}<>"",$F{R0}<>"",$T{R0}<$F{R0})')
+cf_eval("V", f'AND($V{R0}<>"",$V{R0}>=1)', f'AND($V{R0}<>"",$V{R0}<1)')
+cf_eval("AB", f'AND($AB{R0}<>"",$AB{R0}<={gMax})', f'AND($AB{R0}<>"",$AB{R0}>{gMax})')
+cf_eval("AD", f'AND($AD{R0}<>"",$AD{R0}<={gVdot})', f'AND($AD{R0}<>"",$AD{R0}>{gVdot})')
+cf_eval("AK", f'AND($AK{R0}<>"",$AK{R0}<={gWarn})', f'AND($AK{R0}<>"",$AK{R0}>{gWarn})')
+cf_eval("AE", f'AND($AE{R0}<>"",$AE{R0}>={gvmin},$AE{R0}<={gvmax})',
         f'AND($AE{R0}<>"",OR($AE{R0}<{gvmin},$AE{R0}>{gvmax}))')
 rl.conditional_formatting.add(f"H{R0}:H{R1}", FormulaRule(
     formula=[f'AND($H{R0}<>"",$D{R0}<>"",$H{R0}>$D{R0})'], font=Font(color=EVAL_WARN)))
-# Zebra-Streifen (filterfest via SUBTOTAL: zählt nur sichtbare Zeilen) für die Lesbarkeit.
-_zform = f'AND($B{R0}<>"",MOD(SUBTOTAL(103,$B${R0}:$B{R0}),2)=0)'
-_inp_z = sorted(INPUT_COLS)                # weiße Eingabespalten
-_calc_z = sorted(CALC_COLS)                # graue Rechenspalten (inkl. Bewertungs-/rot-grün-Spalten)
-_zrange = lambda cols: " ".join(f"{get_column_letter(j)}{R0}:{get_column_letter(j)}{R1}" for j in cols)
-rl.conditional_formatting.add(_zrange(_inp_z), FormulaRule(formula=[_zform], fill=ZEBRA_INPUT))
-rl.conditional_formatting.add(_zrange(_calc_z), FormulaRule(formula=[_zform], fill=ZEBRA_CALC))
+# Zebra für die übrigen Spalten (Eingabe weiß / Berechnung grau); Bewertungsspalten haben Zebra bereits oben.
+_evalcols = {"R", "T", "V", "AB", "AD", "AE", "AK"}
+_inp_z = [get_column_letter(j) for j in INPUT_COLS]
+_calc_z = [get_column_letter(j) for j in CALC_COLS if get_column_letter(j) not in _evalcols]
+_zr = lambda cols: " ".join(f"{c}{R0}:{c}{R1}" for c in cols)
+rl.conditional_formatting.add(_zr(_inp_z), FormulaRule(formula=[f'AND($B{R0}<>"",{_odd})'], fill=ZEBRA_INPUT))
+rl.conditional_formatting.add(_zr(_calc_z), FormulaRule(formula=[f'AND($B{R0}<>"",{_odd})'], fill=ZEBRA_CALC))
 # schlanker Standard: Zwischen-/Sekundärspalten ausblenden (jederzeit einblendbar)
 for col in ["N", "O", "P", "S", "U", "W", "X", "Y", "Z", "AA", "AC", "AF", "AG", "AH", "AI", "AJ"]:
     rl.column_dimensions[col].hidden = True
@@ -564,6 +576,7 @@ for i in range(N_HKV):
     rm = hv.cell(row=r, column=8)
     rm.value = ArrayFormula(f"H{r}", f'=IF($A{r}="","",_xlfn.TEXTJOIN(", ",TRUE,IF({Aaus}=$A{r},{AUS}$B${R0}:$B${R1},"")))')
     rm.font = f(); rm.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True); rm.border = BORDER; rm.fill = CALC_FILL
+zebra(hv, f"A5:H{4 + N_HKV}", "A", 5, ZEBRA_CALC)   # Zebra-Streifen (berechnete Liste)
 hv.cell(row=5 + N_HKV + 1, column=1,
         value="Baut sich automatisch aus der Auslegung auf (Array-Formeln, Excel & LibreOffice).").font = f(italic=True, color=GREY, size=9)
 disp_header(hv, "Heizkreisverteiler – Übersicht je HKV", 8, "F2", "F2:G2")
@@ -633,8 +646,17 @@ for i, pt in enumerate(vpts):
     for col, (formula, fmt) in forms.items():
         cc = vf.cell(row=r, column=col, value=formula); cc.font = f(); cc.fill = CALC_FILL   # berechnet: grau
         cc.alignment = CEN; cc.number_format = fmt; cc.border = BORDER
-vf.conditional_formatting.add(f"I{V0}:I{V1}", FormulaRule(formula=[f'AND($I{V0}<>"",ABS($I{V0})>0.05)'], font=Font(color=EVAL_WARN)))
-vf.conditional_formatting.add(f"I{V0}:I{V1}", FormulaRule(formula=[f'AND($I{V0}<>"",ABS($I{V0})<=0.05)'], font=Font(color=EVAL_OK)))
+# Zebra + Bewertung (Spalte I) kombiniert; Zebra auf den übrigen Spalten.
+_vodd = f'MOD(SUBTOTAL(103,$A${V0}:$A{V0}),2)=0'
+_vbad = f'AND($I{V0}<>"",ABS($I{V0})>0.05)'
+_vok = f'AND($I{V0}<>"",ABS($I{V0})<=0.05)'
+vf.conditional_formatting.add(f"I{V0}:I{V1}", FormulaRule(formula=[f'AND({_vbad},{_vodd})'], font=Font(color=EVAL_WARN), fill=ZEBRA_CALC))
+vf.conditional_formatting.add(f"I{V0}:I{V1}", FormulaRule(formula=[f'AND({_vok},{_vodd})'], font=Font(color=EVAL_OK), fill=ZEBRA_CALC))
+vf.conditional_formatting.add(f"I{V0}:I{V1}", FormulaRule(formula=[_vbad], font=Font(color=EVAL_WARN)))
+vf.conditional_formatting.add(f"I{V0}:I{V1}", FormulaRule(formula=[_vok], font=Font(color=EVAL_OK)))
+zebra(vf, f"A{V0}:F{V1}", "A", V0, ZEBRA_INPUT)
+for _c in ("G", "H", "J", "K", "L"):
+    zebra(vf, f"{_c}{V0}:{_c}{V1}", "A", V0, ZEBRA_CALC)
 # Summenzeile: Gesamtabweichung über alle Punkte (zeigt die Güte des EN-1264-Modells)
 VS = V1 + 1
 slab = vf.cell(row=VS, column=1, value="Gesamtabweichung (Σ über alle Punkte):")
@@ -815,6 +837,11 @@ for i in range(8):
 # --- Tabelle 5: R-Werte Bodenbeläge | Spalten K–L (Spalte J weiß) ---
 two_col_table(kt, 4, 11, "R-Werte Bodenbeläge", "Bodenbelag", "R [m²·K/W]", BELAEGE, '0.000', n_empty=3)
 
+# Zebra-Streifen je Tabelle (Eingabe-/Nachschlagewerte → helle Streifen)
+zebra(kt, "A6:C10", "A", 6, ZEBRA_INPUT)     # EN-1264-Faktoren
+zebra(kt, "A21:E28", "A", 21, ZEBRA_INPUT)   # Rohrbibliothek
+zebra(kt, "G6:I13", "G", 6, ZEBRA_INPUT)     # Zonen
+zebra(kt, "K6:L25", "K", 6, ZEBRA_INPUT)     # R-Werte Bodenbeläge
 disp_header(kt, "Konstanten / Bibliotheken", 12, project=False)
 setup_print(kt, "A1:L28")
 kt.page_setup.fitToHeight = 1   # garantiert eine A4-Quer-Seite
