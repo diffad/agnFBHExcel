@@ -203,7 +203,8 @@ CHANGELOG = [
 VERSION = CHANGELOG[-1][0]
 AUTHOR = "dh"
 VERTXT = f"Version {VERSION} · {AUTHOR}"
-LOGO = r"C:\Users\derDi\FBH_Auslegung_Excel\agn-logo.png"
+HERE = os.path.dirname(os.path.abspath(__file__))
+LOGO = os.path.join(HERE, "..", "agn-logo.png")   # Logo liegt im Repo-Wurzelverzeichnis
 
 FONT = "Arial"
 NAME_ROW, SYM_ROW, UNIT_ROW = 4, 5, 6
@@ -1227,6 +1228,6 @@ try:
     wb.calculation.fullCalcOnLoad = True
 except Exception:
     pass
-OUT = r"C:\Users\derDi\FBH_Auslegung_Excel\FBH_Auslegung.xlsx"
+OUT = os.path.join(HERE, "FBH_Auslegung_vereinfacht.xlsx")
 wb.save(OUT)
 print("gespeichert:", OUT, "| Version", VERSION, AUTHOR)
